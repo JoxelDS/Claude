@@ -1,5 +1,5 @@
 // node tools/ds/promo.mjs <heroDir> → docs/social/ds/website-offer-{story1,story2,post}.png
-// DS Marketing offer graphics (black, torn paper, DS logo): $497 website in 48 h, $997 Pro, free preview first.
+// DS Marketing offer graphics (black, torn paper, DS logo): $500 Quick Start in 48 h, $1,000 Growth Site, free preview first.
 // <heroDir> holds 390×844 @3× phone screenshots hero-sample-{food,beauty,fitness,home}.png of the preview pages.
 import { chromium } from 'playwright';
 import { mkdirSync, readFileSync } from 'fs';
@@ -35,7 +35,7 @@ const story1 = base(1080, 1920, `
 <div class="h" style="position:absolute;left:60px;top:420px;font-size:100px">Your website.<br><span class="o">Live in</span><br>48 hours.</div>
 <div class="sub" style="position:absolute;left:60px;top:740px">Free preview first. <b style="color:#fff;font-weight:600">Pay only if you love it.</b></div>
 ${phone('beauty', 190, 830, 240, -7, 1)}${phone('food', 600, 805, 255, 6, 2)}
-<div style="position:absolute;left:60px;top:1395px"><div class="h" style="font-size:170px;letter-spacing:-.04em">$497</div><div class="sub" style="margin-top:6px">Design · build · your own domain</div></div>
+<div style="position:absolute;left:60px;top:1395px"><div class="h" style="font-size:170px;letter-spacing:-.04em">$500</div><div class="sub" style="margin-top:6px">Design · build · your own domain</div></div>
 <div style="position:absolute;right:60px;top:1470px"><span class="cta" style="font-size:40px;padding:24px 38px">DM “WEBSITE”</span></div>
 `);
 
@@ -48,10 +48,10 @@ const story2 = base(1080, 1920, `
 <img src="${LOGO}" style="position:absolute;left:60px;top:270px;width:170px">
 <div class="h" style="position:absolute;left:60px;top:410px;font-size:90px">What you get</div>
 <div style="position:absolute;left:60px;right:60px;top:540px;display:flex;gap:24px">
-${col('Starter', '$497', 'Live in 48 hours', ['Mobile-first one-page site', 'Your own domain connected', 'Call, Instagram &amp; directions buttons', 'Google-ready: titles, map, fast load', '1 round of changes'], false)}
-${col('Pro', '$997', 'Live in 5 days', ['Up to 5 pages', 'Online booking or ordering', 'Menu / services / prices', 'Gallery from your photos', 'Google Business Profile setup', '2 rounds of changes'], true)}
+${col('Quick Start', '$500', 'Live in 48 hours', ['Mobile-first one-page site', 'Your own domain connected', 'Call, Instagram &amp; directions buttons', 'Google-ready: titles, map, fast load', '1 round of changes'], false)}
+${col('Growth Site', '$1,000', 'Live in 5 days', ['Up to 5 pages', 'Online booking or ordering', 'Menu / services / prices', 'Gallery from your photos', 'Google Business Profile setup', '2 rounds of changes'], true)}
 </div>
-<div style="position:absolute;left:60px;right:60px;top:1310px;border-top:2px solid rgba(255,255,255,.15);padding-top:34px" class="sub">Care plan <b style="color:#fff;font-weight:600">$49/mo</b>: hosting, updates and small edits.<br>Domain about $15/yr, registered in your name.</div>
+<div style="position:absolute;left:60px;right:60px;top:1310px;border-top:2px solid rgba(255,255,255,.15);padding-top:34px" class="sub">Optional Care plan <b style="color:#fff;font-weight:600">$49/month</b>, renews monthly until you cancel · cancel anytime.<br>Domain about $15/yr, registered in your name.</div>
 <div style="position:absolute;left:0;right:0;top:1480px;text-align:center"><span class="cta" style="font-size:40px;padding:24px 38px">DM “WEBSITE”</span></div>
 `);
 
@@ -61,7 +61,7 @@ const post = base(1080, 1350, `
 <div class="h" style="position:absolute;left:56px;top:230px;font-size:94px">No website?<br><span class="o">We build it</span><br>in 48 hours.</div>
 ${phone('fitness', 590, 600, 220, -6, 1)}${phone('home', 800, 640, 220, 7, 2)}
 <div style="position:absolute;left:56px;top:590px;width:480px" class="sub">A real site on your own domain. Mobile-first, fast, with your call, Instagram and directions buttons.</div>
-<div style="position:absolute;left:56px;top:830px;width:500px"><div class="h" style="font-size:170px;letter-spacing:-.04em">$497</div><div class="sub" style="margin-top:4px">Free preview first.<br>Pay only if you love it.</div></div>
+<div style="position:absolute;left:56px;top:830px;width:500px"><div class="h" style="font-size:170px;letter-spacing:-.04em">$500</div><div class="sub" style="margin-top:4px">Free preview first.<br>Pay only if you love it.</div></div>
 <div style="position:absolute;left:56px;bottom:64px"><span class="cta" style="font-size:40px;padding:22px 40px">DM “WEBSITE”</span></div>
 <div style="position:absolute;right:56px;bottom:84px;font:600 28px I;color:#9a9a9a">@dsmarketing.agency</div>
 `);

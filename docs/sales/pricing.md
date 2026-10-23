@@ -141,7 +141,7 @@ It pays for Joxel's time and screens out buyers who are not serious.
 - **Yes** → the plan in the letter starts on day 31. Invoice net 30, setup fee included in the first invoice.
 - **Not enough event days yet** → one extension, up to 30 days. Only one.
 - **No** → the account turns read-only for 30 days. They can export everything to Excel, then it closes. Posters show "pilot ended."
-- **Silence** → the letter says the monthly plan starts on day 31 unless they cancel in writing. They can switch to annual within 60 days.
+- **Silence** → the pilot ends, the same as a No (read-only for 30 days, export, then it closes). Nothing is ever charged without a signed plan. (Joxel, 2026-10-23: the free pilot never turns into a paid plan by itself; the public pages say "No card. No automatic charge — after 30 days you decide.")
 
 **After the first 10 customers:** switch to a paid pilot. It is 60 days for one month of the plan's monthly price, and 100% of it is credited to year one.
 

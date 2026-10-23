@@ -51,6 +51,21 @@ function applyViaSelect(code, remaining) {
   }
 }
 
+// v571: the Google Translate script is loaded only when a language other than English is picked (or was picked
+// before on this phone). Until then nothing is sent to Google.
+let _gtLoading = false;
+export function ensureTranslate() {
+  if (_gtLoading || typeof document === "undefined") return;
+  if (window.google?.translate?.TranslateElement) return;
+  _gtLoading = true;
+  const s = document.createElement("script");
+  s.src = "https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit";
+  s.async = true;
+  s.onerror = () => { _gtLoading = false; };
+  document.head.appendChild(s);
+}
+const cookieLang = () => { try { const m = /(?:^|;\s*)googtrans=\/en\/([a-zA-Z-]+)/.exec(document.cookie); return m && m[1] !== "en" ? m[1] : ""; } catch { return ""; } };
+
 /** Apply a language to the whole page through the Google Translate widget. */
 export function applyLanguage(code) {
   try {
@@ -66,7 +81,9 @@ export function applyLanguage(code) {
     window.doGTranslate(`en|${code}`);
     return;
   }
-  applyViaSelect(code, code === "en" ? 10 : 32);
+  if (code === "en" && !document.querySelector("#google_translate_element select")) return; // never loaded: nothing to undo
+  ensureTranslate();
+  applyViaSelect(code, code === "en" ? 10 : 60);
 }
 
 /**
@@ -84,8 +101,8 @@ export default function LanguageFab() {
 
   // Restore the saved language after the Google widget loads.
   useEffect(() => {
-    const saved = getSavedLang();
-    if (saved !== "en") {
+    const saved = getSavedLang() !== "en" ? getSavedLang() : cookieLang();
+    if (saved && saved !== "en") {
       const t = setTimeout(() => applyLanguage(saved), 400);
       return () => clearTimeout(t);
     }

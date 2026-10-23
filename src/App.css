@@ -6441,8 +6441,8 @@ html[data-theme="midnight"] {
 }
 html[data-theme="midnight"] body { background: #E9EAF2; }
 
-/* Mono — black & white editorial monochrome (theme id "dsmarketing" kept for stored settings) (red kept for FAIL/status) */
-html[data-theme="dsmarketing"] {
+/* Mono — black & white editorial monochrome (theme id "mono"; "dsmarketing" stored before v571 maps to it) (red kept for FAIL/status) */
+html[data-theme="mono"] {
   --sdx-navy: #141416;
   --sdx-navy-deep: #000000;
   --sdx-blue: #2E2E33;
@@ -6454,12 +6454,12 @@ html[data-theme="dsmarketing"] {
   --shadow-md: 0 4px 12px rgba(0,0,0,.14);
   --shadow-lg: 0 8px 30px rgba(0,0,0,.20);
 }
-html[data-theme="dsmarketing"] body { background: #EFEFF1; }
-html[data-theme="dsmarketing"] .topBar {
+html[data-theme="mono"] body { background: #EFEFF1; }
+html[data-theme="mono"] .topBar {
   background: linear-gradient(105deg, #0A0A0B 0%, #161618 55%, #232326 100%);
   box-shadow: 0 3px 14px rgba(0,0,0,.4);
 }
-html[data-theme="dsmarketing"] .logoMark { background: #FFFFFF; }
+html[data-theme="mono"] .logoMark { background: #FFFFFF; }
 
 /* Theme picker swatches (Admin panel) */
 .themeGrid {
@@ -6568,9 +6568,9 @@ select:focus, textarea:focus {
   border-color: var(--sdx-navy);
   box-shadow: 0 0 0 3px rgba(42,41,92,.14);
 }
-html[data-theme="dsmarketing"] input:focus,
-html[data-theme="dsmarketing"] select:focus,
-html[data-theme="dsmarketing"] textarea:focus {
+html[data-theme="mono"] input:focus,
+html[data-theme="mono"] select:focus,
+html[data-theme="mono"] textarea:focus {
   box-shadow: 0 0 0 3px rgba(0,0,0,.16);
 }
 
@@ -6611,7 +6611,7 @@ html[data-theme="noir"] textarea:focus {
 html[data-theme="ocean"]    { --sdx-pin-mid: #1265B8; --sdx-pin-end: #21A0D2; }
 html[data-theme="midnight"] { --sdx-pin-mid: #24235A; --sdx-pin-end: #3B3A7A; }
 html[data-theme="noir"]     { --sdx-pin-mid: #1A1A1D; --sdx-pin-end: #2E2E33; }
-html[data-theme="dsmarketing"] { --sdx-pin-mid: #1A1A1D; --sdx-pin-end: #2E2E33; }
+html[data-theme="mono"] { --sdx-pin-mid: #1A1A1D; --sdx-pin-end: #2E2E33; }
 
 /* ── Refined header save button ─────────────────────────── */
 .btnGenHeader,
@@ -10902,6 +10902,9 @@ html[data-theme="black"] .fuFixedAddAfter { background: #0f2a1a; border-color: #
 .legalLinks a { color: inherit; text-decoration: underline; text-underline-offset: 2px; display: inline-block; padding: 6px 2px; }
 .pinLegal { margin-top: 6px; }
 .menuLegal { padding: 6px 12px 0; }
+/* v571: the stand portal / sticker page sit on navy — light links, clear of the fixed Submit bar */
+.portalLegal { margin: 18px auto 96px; max-width: 560px; color: rgba(255,255,255,.78); }
+.portalLegal a { color: inherit; }
 .acctLegal { text-align: left; font-size: 0.86rem; }
 html[data-theme="black"] .crSheet { background: #12141c; color: #e5e7eb; }
 html[data-theme="black"] .crReason { background: #0b0d14; color: #e5e7eb; border-color: #2b3040; }

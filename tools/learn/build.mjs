@@ -55,7 +55,7 @@ const UI = {
     demoBox: 'Try it on the live demo', demoBadge: 'Inspector badge', demoNote: 'The demo is a made-up venue. Other visitors use it too.', openDemo: 'Open the demo', tryIt: 'Try it in the demo',
     stepsTitle: 'Step by step', checkRole: 'Quick check', checkRoleLead: 'Three questions. Get 2 of 3 right to finish this guide.',
     whoFor: 'Who this is for', nextRole: 'Next guide →',
-    aboutTitle: 'About these lessons', footer: 'SDX Inspect · Learn', privacy: 'Privacy',
+    aboutTitle: 'About these lessons', footer: 'SDX Inspect · Learn', privacy: 'Privacy', terms: 'Terms', copyright: 'Copyright',
     aboutBody: [
       'SDX Inspect is an inspection app for food stands and kitchens. These lessons are free study material for the people who work with it: stand teams, cleaning, maintenance and Ecolab crews, and inspectors.',
       'The food safety course follows the 2022 FDA Food Code. Each rule names its Food Code section in "Where this comes from". Your state, county or venue may have stricter rules — always follow those too.',
@@ -92,7 +92,7 @@ const UI = {
     demoBox: 'Pruébelo en el demo en vivo', demoBadge: 'Credencial de inspector', demoNote: 'El demo es un lugar inventado. Otros visitantes también lo usan.', openDemo: 'Abrir el demo', tryIt: 'Pruébelo en el demo',
     stepsTitle: 'Paso a paso', checkRole: 'Prueba rápida', checkRoleLead: 'Tres preguntas. Acierte 2 de 3 para terminar esta guía.',
     whoFor: 'Para quién es', nextRole: 'Siguiente guía →',
-    aboutTitle: 'Acerca de estas lecciones', footer: 'SDX Inspect · Aprenda', privacy: 'Privacidad',
+    aboutTitle: 'Acerca de estas lecciones', footer: 'SDX Inspect · Aprenda', privacy: 'Privacidad', terms: 'Términos', copyright: 'Derechos de autor',
     aboutBody: [
       'SDX Inspect es una app de inspección para puestos de comida y cocinas. Estas lecciones son material de estudio gratis para quienes trabajan con ella: equipos de puestos, cuadrillas de limpieza, mantenimiento y Ecolab, e inspectores.',
       'El curso de seguridad alimentaria sigue el Código de Alimentos de la FDA de 2022. Cada regla dice su sección del Código en «De dónde viene esto». Su estado, condado o lugar puede tener reglas más estrictas — sígalas siempre también.',
@@ -153,7 +153,7 @@ function page({ lang, rel, title, desc, body, current, jsonld, bodyClass = '' })
 <main id="main">
 ${body}
 </main>
-<footer class="foot"><div class="wrap"><span>${esc(u.footer)}</span><span><a href="${href('about/')}">${esc(u.about)}</a> · <a href="${up}../">${esc(u.product)}</a> · <a href="${up}../../privacy.html">${esc(u.privacy)}</a></span></div></footer>
+<footer class="foot"><div class="wrap"><span>${esc(u.footer)}</span><span><a href="${href('about/')}">${esc(u.about)}</a> · <a href="${up}../">${esc(u.product)}</a> · <a href="${up}../../privacy.html">${esc(u.privacy)}</a> · <a href="${up}../../terms.html">${esc(u.terms)}</a> · <a href="${up}../../copyright.html">${esc(u.copyright)}</a></span></div></footer>
 <script type="application/json" id="learn-i18n">${JSON.stringify(u.i18n).replace(/</g, '\\u003c')}</script>
 <script src="${up}assets/${JS}" defer></script>
 </body>

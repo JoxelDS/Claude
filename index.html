@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <script>
-      // v552 (Joxel: "when you touch the screen it zooms out"): iPhone / iPad — Safari, Home Screen
+      // v552 (owner: "when you touch the screen it zooms out"): iPhone / iPad — Safari, Home Screen
       // and the app — zoom the page by themselves when a box gets the tap. Locking the scale at 1
       // stops that automatic zoom in and out. Android and computers keep the plain tag (they do not
       // auto-zoom, and people can still pinch there).
@@ -71,24 +71,17 @@
     <!-- MS Tiles -->
     <meta name="msapplication-TileColor" content="#2A295C" />
     <meta name="msapplication-TileImage" content="/icons/icon-192.png" />
-    <!-- DNS prefetch + preconnect for Google Fonts -->
-    <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
-    <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- v571: Inter is served from this site (public/fonts, SIL OFL 1.1) — no request to Google Fonts -->
+    <link rel="preload" href="/fonts/inter.woff2" as="font" type="font/woff2" crossorigin />
     <!-- Firebase preconnect (auth + Firestore + Storage) -->
     <link rel="preconnect" href="https://firestore.googleapis.com" />
     <link rel="preconnect" href="https://identitytoolkit.googleapis.com" />
     <link rel="preconnect" href="https://securetoken.googleapis.com" />
     <link rel="dns-prefetch" href="https://firebasestorage.googleapis.com" />
-    <!-- Google Translate CDN — dns-prefetch only since it loads async -->
-    <link rel="dns-prefetch" href="//translate.google.com" />
-    <link rel="dns-prefetch" href="//translate.googleapis.com" />
-    <!-- Google Fonts: Inter — single async stylesheet reference (deduped 2026-10-14) -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
     <title>SDX Inspect</title>
     <!-- Inline critical CSS for instant first paint -->
     <style>
+      @font-face{font-family:'Inter';src:url(/fonts/inter.woff2) format('woff2');font-weight:100 900;font-style:normal;font-display:swap}
       html{background:#16152E}
       body{margin:0;font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#16152E}
       #splash{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px;background:#16152E;z-index:9999;transition:opacity .3s}
@@ -105,7 +98,7 @@
       .sp-fill{width:40%;height:100%;background:#EE0000;border-radius:3px;animation:sp .8s ease infinite alternate}
       @keyframes sp{from{transform:translateX(0)}to{transform:translateX(200%)}}
     </style>
-  <!-- Google Translate — loaded async so it never blocks first paint -->
+  <!-- Google Translate — v571: loaded ONLY when someone picks a language (src/LanguageFab.jsx ensureTranslate) -->
   <script>
     function googleTranslateElementInit() {
       new google.translate.TranslateElement(
@@ -113,13 +106,6 @@
         'google_translate_element'
       );
     }
-    // Defer until after page is interactive
-    window.addEventListener('load', function() {
-      var s = document.createElement('script');
-      s.src = '//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit';
-      s.async = true;
-      document.head.appendChild(s);
-    });
   </script>
   <style>
     /* Hide ALL Google Translate chrome — banner, tooltip, top bar, logo */
@@ -176,7 +162,7 @@
        the user if JS fails; the inline watcher in <body> dismisses it
        earlier once the app has mounted, and it is pointer-events:none
        from the first frame, so it never blocks a tap.
-       RETIMED 2026-10-10 (v2, Joxel: "make the loading faster and also
+       RETIMED 2026-10-10 (v2, owner: "make the loading faster and also
        the effects"): every beat scaled ~0.64x in step — same shapes,
        same overlaps; watcher minimum hold 1.4s → 0.7s, CSS fallback
        exit 2.35s → 1.6s. The draw still completes before the exit. -->
@@ -230,7 +216,7 @@
     .pinIg svg{flex-shrink:0}
   </style>
   <!-- SDX sign-in layout (2026-10-10) — centered card, status-bar
-       spacing, IG icon chip, pending polish. Joxel: "Put sign in the
+       spacing, IG icon chip, pending polish. owner: "Put sign in the
        middle", "on the top make the time thing good — do not see the
        information merge with the time on the phone", "just the [IG]
        icon somewhere good place."
@@ -320,7 +306,7 @@
   </style>
   <style id="sdx-signin-layout-v2">
     /* ===== SDX SIGN-IN LAYOUT v2 (2026-10-10) =====
-       Joxel, with a photo of the live screen: "Make it better and
+       owner, with a photo of the live screen: "Make it better and
        also the ig in the middle bottom outside of the white shape."
        1) THE IG CHIP LEAVES THE CARD. In PR #19 the chip sat at the
           card's bottom-right corner, INSIDE the white shape. It now
@@ -363,7 +349,7 @@
   </style>
   <style id="sdx-signin-layout-v3">
     /* ===== SDX SIGN-IN LAYOUT v3 (2026-10-10) =====
-       Joxel, with a close-up of the live card: "Make all of the
+       owner, with a close-up of the live card: "Make all of the
        space here make sense." Measured first (production build,
        child-by-child geometry, 390x844 / 800x1180 / 1440x900):
        the card has NO fixed height or min-height anywhere — it
@@ -398,7 +384,7 @@
   </style>
   <style id="sdx-portal-submit-fix">
     /* ===== SDX HACCP PORTAL — SUBMIT BAR + READABILITY (2026-10-11) =====
-       Joxel, from iPad screenshots: (1) "Submit Temperature Log" bottom
+       owner, from iPad screenshots: (1) "Submit Temperature Log" bottom
        bar "does not look good" — a white hard-cornered strip WIDER than
        the content column, bleeding into the navy margins; (2) "I can't
        read" — portal text washed out, worst the yellow-on-yellow notice
@@ -479,7 +465,7 @@
   </style>
   <style id="sdx-notifications-design">
     /* ===== SDX NOTIFICATIONS DESIGN (2026-10-10) =====
-       Joxel: "I want the notification to look better and blue."
+       owner: "I want the notification to look better and blue."
        The bell dropdown (main header + Past Reports header) rendered as a
        plain white card: emoji bell in the header, and a 4px AMBER (#f59e0b)
        bar on everything that wasn't chat/problem_report — approvals
@@ -598,7 +584,7 @@
   </style>
   <style id="sdx-fsr-sticky-fix">
     /* ===== SDX FOOD SAFETY QUICK REFERENCE STICKY FIX (2026-10-11) =====
-       Bug (Joxel, 2026-10-10 21:32 EDT): the Food Safety Quick Reference
+       Bug (owner, 2026-10-10 21:32 EDT): the Food Safety Quick Reference
        bar clips under the fixed header when scrolling. Diagnosis
        (~/workspace/sdx-scroll-clip/): .foodSafetyRefWrap is
        position:sticky with a HARD-CODED top (72px, 66px @<=768px) and
@@ -625,7 +611,7 @@
   </style>
   <style id="sdx-footer-anchor">
     /* ===== SDX FOOTER ANCHOR (2026-10-11) =====
-       Bug (Joxel, 2026-10-11 00:38 EDT, Past Reports screenshot): the navy
+       Bug (owner, 2026-10-11 00:38 EDT, Past Reports screenshot): the navy
        page footer (SDX logo + "Inspection history synced to cloud database.")
        renders mid-screen, immediately under the short loading content, with
        empty page background below it — "I do not want the blue there."
@@ -793,7 +779,7 @@
       })();
     </script>
     <!-- SDX Instagram row — INTERIM index.html implementation (2026-10-10).
-         Joxel asked for the IG link in the app at 07:25 ("Put the ig in
+         owner asked for the IG link in the app at 07:25 ("Put the ig in
          the app so they can click it and go in"); the real patch edits
          src/App.jsx (~/workspace/sdx-ig-link/ig-link.patch) and is queued
          in the Mac landing stack. Until it lands, this script injects the

@@ -6,7 +6,7 @@
  "accent": "#FFC83D",
  "cover": 1.7,
  "facts": [],
- "notes": "Payoff first: the FICTIONAL demo taco truck's profile (demo/taco-profile.jpg, made by demo/make-profile.mjs) scans into its preview site, then rewinds (scan up) to show the 3 steps. Step 1/2 = compare phones with stamp:false + flows: the menu post, a photo and the hours post fly out of the profile into the site's menu, gallery and hours. Step 3 = own domain. The 48 h timer reads '$497 → live in 48 h' (paid after the yes). Uses the engine's new pages fx 'scan' and compare 'flows' / 'stamp: false' (added for this Reel). No numbers beyond the allowed offer facts; demo menu prices are fictional UI.",
+ "notes": "Payoff first: the FICTIONAL demo taco truck's profile (demo/taco-profile.jpg, made by demo/make-profile.mjs) scans into its preview site, then rewinds (scan up) to show the 3 steps. Step 1/2 = compare phones with stamp:false + flows: the menu post, a photo and the hours post fly out of the profile into the site's menu, gallery and hours. Step 3 = own domain. The 48 h timer reads '$500 → live in 48 h' (paid after the yes). Uses the engine's new pages fx 'scan' and compare 'flows' / 'stamp: false' (added for this Reel). No numbers beyond the allowed offer facts; demo menu prices are fictional UI.",
  "scenes": [
   {
    "type": "phone",
@@ -113,7 +113,7 @@
    "scroll": [[1.2, 0], [2.3, 0.25]],
    "aspect": 0.85
   },
-  { "type": "timer", "beats": 6, "tr": "wipe", "head": "Like the preview?", "hours": 48, "label": "$497 → live in 48 h", "endLabel": "✓ LIVE" },
-  { "type": "end", "beats": 6, "tr": "zoom", "line": "Free preview first", "offer": "$497 · live on your own domain in 48 hours", "cta": "DM us “WEBSITE”" }
+  { "type": "timer", "beats": 6, "tr": "wipe", "head": "Like the preview?", "hours": 48, "label": "$500 → live in 48 h", "endLabel": "✓ LIVE" },
+  { "type": "end", "beats": 6, "tr": "zoom", "line": "Free preview first", "offer": "$500 · live on your own domain in 48 hours", "cta": "DM us “WEBSITE”" }
  ]
 }

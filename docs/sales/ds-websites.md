@@ -12,8 +12,16 @@ Goal: sell websites through @dsmarketing.agency. First target: $1,000 = two Quic
 | Payment | 100% up front (Stripe link) | 100% up front (Stripe link) | 100% up front (Stripe link) | monthly |
 
 - Domain: about $12–15 a year, registered **in the client's name** (Porkbun, Namecheap or Cloudflare). We set it up on a screen share or with their login. They own it.
-- Hosting: free static hosting (Netlify or Cloudflare Pages) under DS's account; the Care plan pays for our time, not the hosting.
+- Hosting: free static hosting (Netlify or Cloudflare Pages) under DS's account. What Care covers is ONE list, in "Care plan terms" below — never describe it any other way.
 - Payment: Stripe Payment Links on Joxel's account (joxelbusinessllc) — one link per product (Quick Start $500 · Growth $1,000 · Premium $1,500); add `?client_reference_id=<slug>` so the payment matches the preview. The 2026-10-09 link https://buy.stripe.com/4gM3cv5PI9XyfFh3DC1oI00 bundles all three ($3,000) — never send it. Never take card numbers in a DM.
+
+
+## Care plan terms — shown next to EVERY Care link (Stripe page, DMs, emails). Draft: Joxel fills the [brackets] once, then the same words go everywhere.
+> **Care plan: $49 per month.** Your card is charged today and on the same date every month until you cancel. No minimum term. Includes: [the exact list, e.g. hosting, domain renewal, menu / hours / photo updates when you text us]. Cancel anytime at [the Stripe customer-portal link] or by replying CANCEL to any email from us; cancelling stops the next charge [and the current month is not refunded]. [What happens to the site and the domain after cancelling.]
+>
+> **Plan Care: $49 al mes.** Se cobra hoy y el mismo día cada mes hasta que cancele. Sin plazo mínimo. Incluye: [lista exacta]. Cancele cuando quiera en [enlace del portal de Stripe] o respondiendo CANCELAR a cualquier correo nuestro; al cancelar se detiene el próximo cobro [y el mes en curso no se reembolsa]. [Qué pasa con el sitio y el dominio si cancela.]
+
+Stripe settings for the Care Payment Link: a required, unchecked terms box with the text "I agree to be charged $49 every month until I cancel." / "Acepto que se me cobren $49 cada mes hasta que cancele."; the text above as the custom text next to the button; the no-code customer portal turned on, its link in the receipt and the confirmation message. Until Joxel fills the brackets and turns these on, the Care link is not sent to anyone.
 
 ## How a deal happens
 
@@ -46,7 +54,7 @@ Rules: send between 10 am and 7 pm, max 25 cold DMs a day from a fresh-ish accou
 
 | They say | You answer |
 |---|---|
-| "How much?" | "$500 one time, live in 48 hours on your own domain. Domain is about $15 a year and it's in your name. No monthly fee unless you want us to keep it updated ($49/mo)." |
+| "How much?" | "$500 one time, live in 48 hours on your own domain. Domain is about $15 a year and it's in your name. No monthly fee unless you add the Care plan ($49/mo, cancel anytime — terms below)." |
 | "I already have Instagram" | "Instagram is great for people who already follow you. Google sends people who are searching right now, 'tacos near me', and they want a site with your hours, menu and a button to call. This is that page." |
 | "Too expensive" | "Totally fair. One or two new customers from Google usually pays for it. If timing is the issue, I can split it in two payments of $250." (Keep the price; offer the split, not a discount.) |
 | "Send me more info" | Send story 2 (`docs/social/ds/website-offer-story2.png`) + "The fastest way to see it is the preview: {PREVIEW_URL}. Want it live?" |
@@ -68,7 +76,7 @@ Rules: send between 10 am and 7 pm, max 25 cold DMs a day from a fresh-ish accou
 ## Upsells (at delivery, when they're happiest)
 
 1. **Growth $1,000** (credit the $500 if they upgrade within 14 days → $500 more).
-2. **Care $49/mo**: "I'll keep the menu and hours updated whenever you text me."
+2. **Care $49/mo**: say it with the full "Care plan terms" text below (monthly, renews until cancelled, how to cancel).
 3. **Google Business Profile tune-up $150** (photos, categories, hours, link to the site).
 4. Later: Reels / ads packages from DS.
 

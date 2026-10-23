@@ -141,7 +141,7 @@ const isHomeVenue = () => VENUE_ID === "default";
 
 /* ── Themes — admin-selectable, synced to every device via venueSettings ── */
 const THEMES = [
-  { id: "sodexo",      name: "Classic",  swatch: "linear-gradient(135deg,#2A295C 0%,#1e1d4a 50%,#283897 100%)", logo: LOGO_WHITE },
+  { id: "classic",     name: "Classic",  swatch: "linear-gradient(135deg,#2A295C 0%,#1e1d4a 50%,#283897 100%)", logo: LOGO_WHITE },
   { id: "ocean",       name: "Ocean",    swatch: "linear-gradient(135deg,#0B4EA2 0%,#0A3D80 50%,#1E88D2 100%)", logo: LOGO_WHITE },
   { id: "midnight",    name: "Midnight", swatch: "linear-gradient(135deg,#1C1B45 0%,#121130 50%,#34336E 100%)", logo: LOGO_WHITE },
   { id: "noir",        name: "Noir",     swatch: "linear-gradient(105deg,#0A0A0B 0%,#161618 55%,#232326 100%)", logo: LOGO_WHITE },
@@ -156,17 +156,22 @@ const BLACK_ACCENTS = [
   { id: "gold",   name: "Gold", c: "#D9A62E" },
   { id: "silver", name: "Silver", c: "#8F95AA" },
 ];
-function applyTheme(themeId, accent) {
-  const valid = (THEMES.some(t => t.id === themeId) || themeId === "dsmarketing") ? themeId : "sodexo";
+// v571: neutral theme ids. An unknown stored id (the old name of Classic) falls back to Classic by itself; the mono
+// look was stored as "dsmarketing" before v571.
+const THEME_ALIASES = { dsmarketing: "mono" };
+const themeIdOf = id => THEME_ALIASES[id] || id;
+function applyTheme(themeIdIn, accent) {
+  const themeId = themeIdOf(themeIdIn);
+  const valid = (THEMES.some(t => t.id === themeId) || themeId === "mono") ? themeId : "classic";
   const root = document.documentElement;
   // Cross-fade the whole UI while the theme swaps (login, logout, picker)
-  const changing = (root.dataset.theme || "sodexo") !== valid;
+  const changing = (root.dataset.theme || "classic") !== valid;
   if (changing) {
     root.classList.add("theme-fade");
     clearTimeout(window.__themeFadeT);
     window.__themeFadeT = setTimeout(() => root.classList.remove("theme-fade"), 1100);
   }
-  if (valid === "sodexo") delete root.dataset.theme;
+  if (valid === "classic") delete root.dataset.theme;
   else root.dataset.theme = valid;
   // In Black mode the --sdx-navy token carries the accent role
   const acc = BLACK_ACCENTS.find(a => a.id === accent);
@@ -176,8 +181,8 @@ function applyTheme(themeId, accent) {
 
 // Module-level branding cache — updated by the main App on every venueSettings change
 let _vs = {};
-// "dsmarketing" stays a valid stored theme id (black & white mono look); it carries the SDX Inspect brand
-const isMonoTheme = () => _vs.theme === "dsmarketing";
+// "mono" (stored before v571 as "dsmarketing") is a valid theme id (black & white mono look); it carries the SDX Inspect brand
+const isMonoTheme = () => themeIdOf(_vs.theme) === "mono";
 // v563: a logo link goes into printed pages (posters, stickers) — only an https link with no quotes / spaces / angle
 // brackets, or a picture as a data: URL; anything else is no logo (venueSettings is writable by any client)
 function safeLogoUrl(u) {
@@ -205,7 +210,7 @@ function resolveSystemName() { return _vs.companyName ? `${_vs.companyName} Insp
 
 /* ── Multi-venue: detect ?v=venueSlug from URL ───────────────────
    Each venue gets completely isolated data (localStorage + Firestore).
-   Example: https://yourapp.com/?v=hard-rock-stadium
+   Example: https://yourapp.com/?v=riverside-arena
    Slug is sanitized to lowercase letters, digits, hyphens, underscores.
    Falls back to "default" if param is absent or invalid.
 ──────────────────────────────────────────────────────────────── */
@@ -252,10 +257,11 @@ const VENUE_NAME = (() => {
 
 // v563: the venue's own name for posters and the setup page — ?vname=, else the venue registry's name (remembered on
 // this phone once read), else the company name. A customer venue's poster used to read "SDX INSPECT · KITCHEN CHECK".
+let _homeLabel = ""; // v571: the home venue's name comes with src/home/seed.js
 let _venueRegName = (() => { try { return localStorage.getItem(`sdx_venue_name_${VENUE_ID}`) || ""; } catch { return ""; } })();
 function setVenueRegName(n) { const v = String(n || "").trim().slice(0, 60); if (!v || v === _venueRegName) return; _venueRegName = v; try { localStorage.setItem(`sdx_venue_name_${VENUE_ID}`, v); } catch {} try { window.dispatchEvent(new CustomEvent("sdx-venue-name")); } catch {} }
 // v563: the name the venue admin typed in Admin Panel → Venue name & logo (venueSettings.venueName) wins over an older link
-function venueDisplayLabel() { return _vs.venueName || VENUE_NAME || _venueRegName || (VENUE_ID === "default" ? "Hard Rock Stadium" : "") || _vs.companyName || resolveCompanyName(); }
+function venueDisplayLabel() { return _vs.venueName || VENUE_NAME || _venueRegName || (VENUE_ID === "default" ? _homeLabel : "") || _vs.companyName || resolveCompanyName(); }
 // v563: every link a customer venue hands out (invites, stand posters, equipment stickers) carries ?v= AND ?vname= —
 // a phone that never saw the venue showed the slug made pretty ("Newvenue") on the badge screen. Never on the home venue.
 function venueLinkName() { return VENUE_ID === "default" ? "" : String(_vs.venueName || VENUE_NAME || _venueRegName || "").trim().slice(0, 60); }
@@ -991,107 +997,6 @@ const PAR_KEY            = `sdx_par_supplies_${VENUE_ID}`; // standing supply ch
 const VENUE_SETTINGS_KEY = `sdx_venue_settings_${VENUE_ID}`; // per-venue config (inspection interval, etc.)
 const REPORT_ID_KEY      = `sdx_report_id_${VENUE_ID}`;      // active report ID — persisted so HACCP QR stays linked across page reloads
 
-/* ── Hard Rock Stadium — Ice Maker seed data (from May 2026 spreadsheet) ──
-   Keys are the location names as written in the Excel file.
-   At inventory load time, these are fuzzy-matched against inspection site
-   names (normalise to UPPER, collapse whitespace, strip punctuation) to
-   pre-populate iceMakerData counts.  Users can always override via the
-   +/− stepper.  Only sites with count > 0 are included.
-──────────────────────────────────────────────────────────────────────────── */
-const HARD_ROCK_ICE_MAKER_SEED = {
-  "101 - CONCESSION":           { count: 1 },
-  "102 - BAR":                  { count: 1 },
-  "103 - BAR":                  { count: 1 },
-  "104 - KITCHEN":              { count: 1 },
-  "106 - CONCESSION":           { count: 1 },
-  "107 - CONCESSION":           { count: 1 },
-  "108 - BAR":                  { count: 1 },
-  "110 - CONCESSION":           { count: 1 },
-  "112 - CONCESSION":           { count: 1 },
-  "113 - KITCHEN":              { count: 1 },
-  "114 - SHULA B":              { count: 2 },
-  "115 - CONCESSION":           { count: 1 },
-  "116 - BAR":                  { count: 1 },
-  "117 - CONCESSION":           { count: 1 },
-  "118 - CONCESSION":           { count: 1 },
-  "119 - CONCESSION":           { count: 1 },
-  "120 - CONCESSION":           { count: 1 },
-  "121 - CONCESSION":           { count: 1 },
-  "122A - EDGEWATER":           { count: 2 },
-  "123 - CONCESSION":           { count: 1 },
-  "124 - CONCESSION":           { count: 1 },
-  "126 - CONCESSION":           { count: 1 },
-  "127 - CONCESSION":           { count: 1 },
-  "128 - BAR":                  { count: 1 },
-  "129 - CONCESSION":           { count: 1 },
-  "130 - CONCESSION":           { count: 1 },
-  "131 - CONCESSION":           { count: 1 },
-  "132 - BAR":                  { count: 1 },
-  "133 - CONCESSION":           { count: 1 },
-  "135 - CONCESSION":           { count: 1 },
-  "136 - CONCESSION":           { count: 1 },
-  "137 - CONCESSION":           { count: 1 },
-  "139 - CONCESSION":           { count: 1 },
-  "140 - CONCESSION":           { count: 1 },
-  "141 - CONCESSION":           { count: 1 },
-  "142A - WYNWOOD":             { count: 2 },
-  "143 - CONCESSION":           { count: 1 },
-  "144 - CONCESSION":           { count: 1 },
-  "145 - CONCESSION":           { count: 1 },
-  "146 - CONCESSION":           { count: 1 },
-  "147 - NINE":                 { count: 2 },
-  "148 - CONCESSION":           { count: 1 },
-  "149 - CONCESSION":           { count: 1 },
-  "150 - EDGEWATER":            { count: 2 },
-  "151 - CONCESSION":           { count: 1 },
-  "152 - CONCESSION":           { count: 1 },
-  "201 - CONCESSION":           { count: 1 },
-  "202 - CONCESSION":           { count: 1 },
-  "203 - CONCESSION":           { count: 1 },
-  "204 - CONCESSION":           { count: 1 },
-  "205 - CONCESSION":           { count: 1 },
-  "206 - CONCESSION":           { count: 1 },
-  "207 - CONCESSION":           { count: 1 },
-  "208 - CONCESSION":           { count: 1 },
-  "209 - CONCESSION":           { count: 1 },
-  "210 - CONCESSION":           { count: 1 },
-  "211 - CONCESSION":           { count: 1 },
-  "212 - CONCESSION":           { count: 1 },
-  "213 - CONCESSION":           { count: 1 },
-  "214 - CONSESION":            { count: 2 },
-  "215 - CONCESSION":           { count: 1 },
-  "216 - BAR":                  { count: 1 },
-  "217 - CONCESSION":           { count: 1 },
-  "218 - CONCESSION":           { count: 1 },
-  "220 - CONCESSION":           { count: 1 },
-  "221 - CONCESSION":           { count: 1 },
-  "222 - FARMSTEAD / SHULA/":   { count: 2 },
-  "223 - CONCESSION":           { count: 1 },
-  "224 - CONCESSION":           { count: 1 },
-  "225 - CONCESSION":           { count: 1 },
-  "226 - CONCESSION":           { count: 1 },
-  "227 - CONCESSION":           { count: 1 },
-  "228 - CONCESSION":           { count: 1 },
-  "229- BAR":                   { count: 2 },
-  "230 - CONCESSION":           { count: 1 },
-  "232 - KITCHEN":              { count: 2 },
-  "233 - CONCESSION":           { count: 1 },
-  "234 - CONCESSION":           { count: 1 },
-  "235 - AREA":                 { count: 2 },
-  "236 - CONCESSION":           { count: 1 },
-  "237 - CONCESSION":           { count: 1 },
-  "238 - CONCESSION":           { count: 1 },
-  "239 - CONCESSION":           { count: 1 },
-  "240 - CONCESSION":           { count: 1 },
-  "241 - CONCESSION":           { count: 1 },
-  "242- FARMSTEAD":             { count: 2 },
-  "243 - CONCESSION":           { count: 1 },
-  "244 - CONCESSION":           { count: 1 },
-  "245 - CONCESSION":           { count: 1 },
-  "LEXUS":                      { count: 3 },
-  "WAREHOUSE":                  { count: 2 },
-};
-
 /* ── Normalise a location/site name for fuzzy matching ──────────────────
    Both the spreadsheet keys and the inspection site names go through this
    before comparison so that small differences in spacing, punctuation, or
@@ -1105,242 +1010,13 @@ function normaliseLocName(s) {
     .trim();
 }
 
-/* ── Pre-normalised lookup table built once at module load ───────────── */
-const ICE_MAKER_SEED_NORM = {};
-for (const [key, val] of Object.entries(VENUE_ID === "default" ? HARD_ROCK_ICE_MAKER_SEED : {})) {
-  ICE_MAKER_SEED_NORM[normaliseLocName(key)] = val;
-}
-
-/* ── Hard Rock Stadium — License seed data (from official license sheet) ──
-   Keys are all known variations of how inspectors write the site name.
-   Values are the official license numbers from the license spreadsheet.
-   "IN PROCESS" entries are omitted — no license to seed yet.
-   At dashboard load time these are matched against inspection site names
-   (normalised) so the Licenses tab is pre-populated automatically.
-──────────────────────────────────────────────────────────────────────────── */
-const HARD_ROCK_LICENSE_SEED = {
-  // Stand 101
-  "101 - Magic City Dogs":              "NOS2319780",
-  "101 Magic City Dogs":                "NOS2319780",
-  "P101 - Arepa Cart / Sub":            "NOS2334411",
-  "P101 Arepa Cart":                    "NOS2334411",
-  // Stand 102
-  "102 - Crispis Chicken":              "NOS2325799",
-  "102 Crispis Chicken":                "NOS2325799",
-  "102 - Crisppis Chicken":             "NOS2325799",
-  // Stand 104
-  "104 - Sobe Q":                       "NOS2319779",
-  "104 Sobe Q":                         "NOS2319779",
-  "P104 - Arepa Cart / Sub":            "NOS2334424",
-  "P104 Arepa Cart":                    "NOS2334424",
-  // Stand 106
-  "106 - Fatboy Smashburger":           "NOS2325797",
-  "106 Fatboy Smashburger":             "NOS2325797",
-  // Stand 107
-  "107 - Fan Favorites":                "NOS2319803",
-  "107 Fan Favorites":                  "NOS2319803",
-  "P107 - Dip N Dots / Sub":            "NOS2334421",
-  "P107 Dip N Dots":                    "NOS2334421",
-  // Stand 111
-  "111 - Ella Cafe":                    "NOS2326513",
-  "111 Ella Cafe":                      "NOS2326513",
-  // Stand 114
-  "P114 - Shawarma Gyros / Sub":        "NOS2334412",
-  "P114 - Shawarma / Sub":              "NOS2334412",
-  "P114 Shawarma":                      "NOS2334412",
-  "P114 Shawarma Gyros":                "NOS2334412",
-  "114 - Magic City Dogs":              "NOS2319802",
-  "114 Magic City Dogs":                "NOS2319802",
-  "P114 - Talkin Tacos / Sub":          "NOS2334416",
-  "P114 Talkin Tacos":                  "NOS2334416",
-  // Stand 117
-  "117 - Seed":                         "NOS2319801",
-  "117 Seed":                           "NOS2319801",
-  // Stand 119
-  "119 - Tostitos":                     "NOS2319796",
-  "119 Tostitos":                       "NOS2319796",
-  // Stand 122
-  "122 - Cantaloupe":                   "NOS2319795",
-  "122 Cantaloupe":                     "NOS2319795",
-  "P122 - Fat Boy Smashed Cart":        "NOS2334408",
-  "P122 Fat Boy Smashed Cart":          "NOS2334408",
-  "P119 - Arepa Cart / Sub":            "NOS2334419",
-  "P119 Arepa Cart":                    "NOS2334419",
-  "P122 - Arepa Cart / Sub":            "NOS2334419",
-  "P122 Arepa Cart":                    "NOS2334419",
-  // Stand 129
-  "129 - Magic City Dogs":              "NOS2319794",
-  "129 Magic City Dogs":                "NOS2319794",
-  "P129 - Kosher Burger & Dogs / Sub":  "NOS2334417",
-  "P129 Kosher Burger":                 "NOS2334417",
-  // Stand 132
-  "132 - Sobe Q":                       "NOS2319793",
-  "132 Sobe Q":                         "NOS2319793",
-  // Stand 134
-  "134 - Novecento":                    "NOS2325137",
-  "134 Novecento":                      "NOS2325137",
-  // Stand 135
-  "135 - Magic City Dogs":              "NOS2319789",
-  "135 Magic City Dogs":                "NOS2319789",
-  // Stand 137
-  "P137 - Dip N Dots / Sub":            "NOS2338680",
-  "P137 Dip N Dots":                    "NOS2338680",
-  // Stand 114A
-  "114A - Cheeseburger Baby":           "NOS2334824",
-  "114A Cheeseburger Baby":             "NOS2334824",
-  // Stand 117A
-  "117A - AIFI Wynwood Walkthrough":    "NOS2334823",
-  "117A AIFI Wynwood":                  "NOS2334823",
-  // Stand 120A
-  "120A - Sol Cubano":                  "NOS2334822",
-  "120A Sol Cubano":                    "NOS2334822",
-  // Stand 122A
-  "122A - AIFI Wynwood Walkthrough":    "NOS2334821",
-  "122A AIFI Wynwood":                  "NOS2334821",
-  // Stand 130A
-  "130A - Avoeats":                     "NOS2321406",
-  "130A Avoeats":                       "NOS2321406",
-  // Stand 142A
-  "142A - AIFI Smashed Burger":         "NOS2334820",
-  "142A AIFI Smashed Burger":           "NOS2334820",
-  // Stand 144A
-  "144A - Fuku":                        "NOS2334819",
-  "144A Fuku":                          "NOS2334819",
-  // Stand 150A
-  "150A - AIFI Edgewater Grill":        "NOS2334817",
-  "150A AIFI Edgewater Grill":          "NOS2334817",
-  // Stand 231
-  "231 - Talkin Tacos":                 "NOS2332692",
-  "231 Talkin Tacos":                   "NOS2332692",
-  // Stand 232
-  "232 - Suite Kitchen":                "NOS2324071",
-  "232 Suite Kitchen":                  "NOS2324071",
-  // Stand 233
-  "233 - Cheeseburger Baby":            "NOS2332693",
-  "233 Cheeseburger Baby":              "NOS2332693",
-  // Stand 242
-  "242 - Edgewater Grill":              "NOS2319786",
-  "242 Edgewater Grill":                "NOS2319786",
-  // Stand 243
-  "243 - Sushi Maki / Sea Food Republic": "NOS2331745",
-  "243 Sushi Maki":                     "NOS2331745",
-  "243 Sea Food Republic":              "NOS2331745",
-  // Stand 245
-  "245 - Puffles":                      "NOS2331744",
-  "245 Puffles":                        "NOS2331744",
-  // Stand 246
-  "246 - La Carreta":                   "NOS2331743",
-  "246 La Carreta":                     "NOS2331743",
-  // Stand 247
-  "247 - Sobe Q":                       "File# 377155",
-  "247 Sobe Q":                         "File# 377155",
-  // Stand 250
-  "250 - Shula Burger / Farmstead / Pizza": "NOS2324069",
-  "250 Shula Burger":                   "NOS2324069",
-  "250 Farmstead":                      "NOS2324069",
-  // Stand 304
-  "304 - Granny Beez":                  "NOS2319783",
-  "304 Granny Beez":                    "NOS2319783",
-  // Stand 307
-  "P307 - Kosher Hot Dog / Arepa Cart": "NOS2338681",
-  "P307 Kosher Hot Dog":                "NOS2338681",
-  // Stand 308
-  "308 - Cantaloupe":                   "NOS2319806",
-  "308 Cantaloupe":                     "NOS2319806",
-  // Stand 310
-  "P310 - Sizzle & Dippin Dots / Sub":  "NOS2338679",
-  "P310 Sizzle Dippin Dots":            "NOS2338679",
-  // Stand 312
-  "312 - La MilaNation":                "NOS2319805",
-  "312 La MilaNation":                  "NOS2319805",
-  "312 La Milanation":                  "NOS2319805",
-  // Stand 315
-  "P315 - Arepa Cart / Sub":            "NOS2334415",
-  "P315 Arepa Cart":                    "NOS2334415",
-  // Stand 317
-  "317 - Sol Cubano":                   "NOS2319804",
-  "317 Sol Cubano":                     "NOS2319804",
-  // Stand 317A
-  "317A - AIFI Smashed Burger":         "NOS2334859",
-  "317A AIFI Smashed Burger":           "NOS2334859",
-  // Stand 318
-  "318 - Sweet Cream":                  "NOS2326971",
-  "318 Sweet Cream":                    "NOS2326971",
-  // Stand 319A
-  "319A - AIFI Edgewater Grill":        "NOS2334858",
-  "319A AIFI Edgewater Grill":          "NOS2334858",
-  // Stand 322
-  "P322 - Shawarma Gyros / Sub":        "NOS2334405",
-  "P322 - Shawarma / Sub":              "NOS2334405",
-  "P322 Shawarma":                      "NOS2334405",
-  "P322 Shawarma Gyros":                "NOS2334405",
-  // Stand 323
-  "P323 - Dip N Dots / Sub":            "NOS2338677",
-  "P323 Dip N Dots":                    "NOS2338677",
-  // Stand 325
-  "P325 - Arepa Cart / Sub":            "NOS2334414",
-  "P325 Arepa Cart":                    "NOS2334414",
-  // Stand 327
-  "327 - Fan Favorites":                "NOS2319798",
-  "327 Fan Favorites":                  "NOS2319798",
-  // Stand 329
-  "329 - Crispis Chicken":              "NOS2321412",
-  "329 Crispis Chicken":                "NOS2321412",
-  // Stand 332
-  "332 - Seed":                         "NOS2324673",
-  "332 Seed":                           "NOS2324673",
-  // Stand 336
-  "336 - Cantaloupe":                   "NOS2319792",
-  "336 Cantaloupe":                     "NOS2319792",
-  // Stand 338
-  "P338 - Sizzle & Dippin Dots / Sub":  "NOS2334407",
-  "P338 Sizzle Dippin Dots":            "NOS2334407",
-  // Stand 340
-  "340 - Talkin Tacos":                 "NOS2319791",
-  "340 Talkin Tacos":                   "NOS2319791",
-  // Stand 342
-  "P342 - Mr Chory":                    "NOS2334409",
-  "P342 Mr Chory":                      "NOS2334409",
-  // Stand 345
-  "345 - Little Caesar":                "NOS2319790",
-  "345 Little Caesar":                  "NOS2319790",
-  // Stand 345A
-  "345A - AIFI Smashed Burger":         "NOS2334857",
-  "345A AIFI Smashed Burger":           "NOS2334857",
-  // Stand 347
-  "347 - Lucky Chicken":                "NOS2326622",
-  "347 Lucky Chicken":                  "NOS2326622",
-  // Stand 347A
-  "347A - AIFI Edgewater Grill":        "NOS2334856",
-  "347A AIFI Edgewater Grill":          "NOS2334856",
-  // Stand 350
-  "350 - Benihanas":                    "NOS2326620",
-  "350 Benihanas":                      "NOS2326620",
-  "P350 - Dip N Dots / Sub":            "NOS2338678",
-  "P350 Dip N Dots":                    "NOS2338678",
-  // Stand 354
-  "P354 - Arepa Cart (Sub)":            "NOS2334404",
-  "P354 Arepa Cart":                    "NOS2334404",
-  // Stand 355
-  "355 - Fan Favorite":                 "NOS2326624",
-  "355 Fan Favorite":                   "NOS2326624",
-  // Global / Kitchen
-  "Main Kitchen":                       "NOS2324068",
-  "Lexus North Club & Main Warehouse":  "NOS2334853",
-  "Lexus North Club":                   "NOS2334853",
-  "72 Club South/East":                 "NOS2334854",
-  "72 Club South East":                 "NOS2334854",
-  "Training Facility Batist.":          "NOS2336936",
-  "Training Facility":                  "NOS2336936",
-};
-// v546: the license sheet belongs to the original venue only; other venues start empty.
-const LICENSE_SEED = VENUE_ID === "default" ? HARD_ROCK_LICENSE_SEED : {};
+// v571: the home venue's tables (license sheet, name aliases, …) live in src/home/seed.js, which only the home venue
+// downloads (applyHomeSeed below, called by main.jsx before the first render). Customer venues and the demo get none.
+let LICENSE_SEED = {};
 
 /* ── Pre-normalised license lookup built once at module load ─────────── */
-const LICENSE_SEED_NORM = {};
-for (const [key, val] of Object.entries(LICENSE_SEED)) {
-  LICENSE_SEED_NORM[normaliseLocName(key)] = val;
-}
+let LICENSE_SEED_NORM = {};
+const buildSeedNorm = () => { const o = {}; for (const [key, val] of Object.entries(LICENSE_SEED)) o[normaliseLocName(key)] = val; return o; };
 
 /* ── License lookup by unit/stand number ──────────────────────────────
    Allows matching when inspector types just the number, e.g. "101" or "P101".
@@ -1349,7 +1025,8 @@ for (const [key, val] of Object.entries(LICENSE_SEED)) {
    are stored here; shared-number entries (same number, different restaurant,
    different licenses) are excluded to avoid wrong auto-fill.
 ──────────────────────────────────────────────────────────────────────── */
-const LICENSE_SEED_BY_NUMBER = (() => {
+let LICENSE_SEED_BY_NUMBER = {};
+const buildSeedByNumber = () => {
   // "101 - Magic City Dogs" → token "101"
   // "P101 - Arepa Cart"     → token "P101"
   const byNum = {};  // num → Set of license values seen
@@ -1366,14 +1043,15 @@ const LICENSE_SEED_BY_NUMBER = (() => {
     if (lics.size === 1) result[num] = [...lics][0];
   }
   return result;
-})();
+};
 
 /* ── License lookup by restaurant name only (no number prefix) ────────
    Allows matching when inspector types just the restaurant name, e.g.
    "Magic City Dogs" or "Fatboy Smashburger".
    Only entries where the name maps to exactly one license are stored.
 ──────────────────────────────────────────────────────────────────────── */
-const LICENSE_SEED_BY_NAME = (() => {
+let LICENSE_SEED_BY_NAME = {};
+const buildSeedByName = () => {
   // Strip the leading number/P-number prefix and normalise the remainder
   const byName = {};  // nameNorm → Set of license values seen
   for (const [key, lic] of Object.entries(LICENSE_SEED)) {
@@ -1391,7 +1069,7 @@ const LICENSE_SEED_BY_NAME = (() => {
     if (lics.size === 1) result[norm] = [...lics][0];
   }
   return result;
-})();
+};
 
 /* ── Canonical restaurant name lookup by unit/stand number ───────────────
    Derived from LICENSE_SEED: the first "NNN - Name" entry for each
@@ -1405,115 +1083,7 @@ const LICENSE_SEED_BY_NAME = (() => {
    different types; names drift between seasons — the license number is
    the stable anchor. Partial: pages covering ~139-230 were not
    photographed; those units fall back to the older name-keyed seed. */
-const LICENSE_REGISTRY = [
-  // Source: INDEX_LICENSES_HR_STADIUM_2026.xlsx — sheet "NEW 2026" (89 active, 16 requested/needed, 1 file-ref) — reconciled row by row against the pasted 2026 sheet in v464
-  { unit: "101", type: "C", license: "NOS2319780", name: "Magic City Dogs", status: "ACTIVE" },
-  { unit: "101", type: "P", license: "NOS2334411", name: "Arepa Cart / Sub", status: "ACTIVE" },
-  { unit: "102", type: "S", license: "NOS2325799", name: "Crisppis Chicken", status: "ACTIVE" },
-  { unit: "104", type: "C", license: "NOS2319779", name: "Sobe Q", status: "ACTIVE" },
-  { unit: "104", type: "P", license: "NOS2334424", name: "Arepa Cart / Sub", status: "ACTIVE" },
-  { unit: "106", type: "C", license: "NOS2325797", name: "Fatboy Smashburger", status: "ACTIVE" },
-  { unit: "107", type: "C", license: "NOS2319803", name: "Fan Favorites", status: "ACTIVE" },
-  { unit: "107", type: "P", license: "NOS2334421", name: "Dip N Dots/ Sub", status: "ACTIVE" },
-  { unit: "111", type: "S", license: "NOS2326513", name: "Amazonica", status: "ACTIVE" },
-  { unit: "114", type: "P", license: "NOS2334412", name: "Shawarma / Sub", status: "ACTIVE" },
-  { unit: "114", type: "C", license: "NOS2319802", name: "Magic City Dogs", status: "ACTIVE" },
-  { unit: "114", type: "P", license: "NOS2334416", name: "La Placita", status: "ACTIVE" },
-  { unit: "114A", type: "S", license: "NOS2334824", name: "Cheeseburger Baby", status: "ACTIVE" },
-  { unit: "117", type: "S", license: "NOS2319801", name: "Seed", status: "ACTIVE" },
-  { unit: "117A", type: "C", license: "NOS2334823", name: "AIFI Wynwood Walkthrough", status: "ACTIVE" },
-  { unit: "119", type: "C", license: "NOS2319796", name: "Tostitos", status: "ACTIVE" },
-  { unit: "120A", type: "C", license: "NOS2334822", name: "Sol Cubano", status: "ACTIVE" },
-  { unit: "122", type: "C", license: "NOS2319795", name: "Cantaloupe", status: "ACTIVE" },
-  { unit: "122", type: "P", license: "NOS2334408", name: "Joe Smashed Burger Cart", status: "ACTIVE" },
-  { unit: "119", type: "P", license: "NOS2334419", name: "Arepa Cart / Sub", status: "ACTIVE", note: "Moved from 122" },
-  { unit: "122", type: "P", license: "", name: "Tostitos Nacho Cart", status: "NEEDED" },
-  { unit: "122A", type: "C", license: "NOS2334821", name: "AIFI Wynwood Walkthrough", status: "ACTIVE" },
-  { unit: "129", type: "C", license: "NOS2319794", name: "Magic City Dogs", status: "ACTIVE" },
-  { unit: "129", type: "P", license: "NOS2334417", name: "Kosher Burger & Dogs / Sub", status: "ACTIVE" },
-  { unit: "129", type: "P", license: "", name: "Shawarma", status: "REQUESTED" },
-  { unit: "132", type: "C", license: "NOS2319793", name: "Sobe Q", status: "ACTIVE" },
-  { unit: "130A", type: "C", license: "NOS2321406", name: "Avoeats", status: "ACTIVE" },
-  { unit: "134", type: "S", license: "NOS2325137", name: "Novecento", status: "ACTIVE" },
-  { unit: "135", type: "C", license: "NOS2319789", name: "Magic City Dogs", status: "ACTIVE" },
-  { unit: "135", type: "P", license: "", name: "Shawarma", status: "REQUESTED" },
-  { unit: "137", type: "P", license: "NOS2338680", name: "Dip N Dots/ Sub", status: "ACTIVE" },
-  { unit: "139", type: "S", license: "NOS2319787", name: "Italian Vice", status: "ACTIVE" },
-  { unit: "142", type: "C", license: "NOS2319788", name: "Little Caesar", status: "ACTIVE" },
-  { unit: "142", type: "P", license: "NOS2334406", name: "Mr Chory", status: "ACTIVE" },
-  { unit: "142A", type: "C", license: "NOS2334820", name: "AIFI Smashed Burger", status: "ACTIVE" },
-  { unit: "144A", type: "S", license: "NOS2334819", name: "Fuku", status: "ACTIVE" },
-  { unit: "148", type: "P", license: "NOS2334422", name: "Dip N Dots/ Sub", status: "ACTIVE" },
-  { unit: "148", type: "P", license: "NOS2334423", name: "Kosher Burger & Hot Dogs / Sub", status: "ACTIVE" },
-  { unit: "148", type: "P", license: "", name: "Cortadito", status: "REQUESTED" },
-  { unit: "148", type: "S", license: "NOS2334818", name: "Benihana", status: "ACTIVE" },
-  { unit: "150", type: "P", license: "NOS2334420", name: "Chef Creole", status: "ACTIVE" },
-  { unit: "150", type: "P", license: "", name: "Tostitos Nacho Cart", status: "NEEDED" },
-  { unit: "150", type: "C", license: "NOS2319781", name: "Cantaloupe", status: "ACTIVE" },
-  { unit: "150A", type: "C", license: "NOS2334817", name: "AIFI Edgewater Grill", status: "ACTIVE" },
-  { unit: "154", type: "C", license: "NOS2326512", name: "Sweet Cream", status: "ACTIVE" },
-  { unit: "203", type: "C", license: "NOS2319797", name: "Section 203 & Bar", status: "ACTIVE" },
-  { unit: "214", type: "C", license: "NOS2324070", name: "Farmstead / Shawarma", status: "ACTIVE" },
-  { unit: "217", type: "C", license: "NOS2331747", name: "Donuts & Ice Cream", status: "ACTIVE" },
-  { unit: "219", type: "C", license: "NOS2331746", name: "Stacked Shorty's / Sobe Q", status: "ACTIVE" },
-  { unit: "220", type: "P", license: "NOS2338676", name: "Bubba Ice", status: "ACTIVE" },
-  { unit: "222", type: "C", license: "NOS2325643", name: "Shula Burger / Farmstead / Pizza", status: "ACTIVE" },
-  { unit: "231", type: "S", license: "NOS2332692", name: "Tacotomia", status: "ACTIVE" },
-  { unit: "233", type: "S", license: "NOS2332693", name: "Cheeseburger Baby", status: "ACTIVE" },
-  { unit: "242", type: "C", license: "NOS2319786", name: "Edgewater Grill", status: "ACTIVE" },
-  { unit: "243", type: "S", license: "NOS2331745", name: "Sushi Maki / Asia Bites", status: "ACTIVE" },
-  { unit: "245", type: "S", license: "NOS2331744", name: "Puffles", status: "ACTIVE" },
-  { unit: "246", type: "S", license: "NOS2331743", name: "Ella Cafe", status: "ACTIVE" },
-  { unit: "247", type: "C", license: "File# 377155", name: "Sobe Q", status: "FILE_REF" },
-  { unit: "250", type: "C", license: "NOS2324069", name: "Shula Burger / Farmstead / Pizza", status: "ACTIVE" },
-  { unit: "304", type: "S", license: "NOS2319783", name: "Granny Beez", status: "ACTIVE" },
-  { unit: "307", type: "P", license: "NOS2338681", name: "Kosher Hot Dog / Arepa Cart", status: "ACTIVE" },
-  { unit: "308", type: "C", license: "NOS2319806", name: "Cantaloupe", status: "ACTIVE" },
-  { unit: "310", type: "P", license: "NOS2338679", name: "Sizzle & Dippin Dots / Sub", status: "ACTIVE" },
-  { unit: "311", type: "P", license: "", name: "Fuku", status: "NEEDED", note: "Check if can be combined with current DippNDots / Sizzle carts in 310" },
-  { unit: "311", type: "P", license: "", name: "Walking Tacos", status: "NEEDED" },
-  { unit: "312", type: "S", license: "NOS2319805", name: "La MilaNation", status: "ACTIVE" },
-  { unit: "314", type: "P", license: "", name: "Cheese Burger Baby", status: "NEEDED" },
-  { unit: "315", type: "P", license: "NOS2334415", name: "Arepa Cart / Sub", status: "ACTIVE" },
-  { unit: "317", type: "C", license: "NOS2319804", name: "Mr. Chory", status: "ACTIVE" },
-  { unit: "317A", type: "C", license: "NOS2334859", name: "AIFI Smashed Burger", status: "ACTIVE" },
-  { unit: "318", type: "C", license: "NOS2326971", name: "Sweet Cream", status: "ACTIVE" },
-  { unit: "319", type: "S", license: "NOS2319800", name: "Fuku", status: "ACTIVE" },
-  { unit: "319A", type: "C", license: "NOS2334858", name: "AIFI Edgewater Grill", status: "ACTIVE" },
-  { unit: "322", type: "P", license: "NOS2334405", name: "Shawarma / Sub", status: "ACTIVE" },
-  { unit: "323", type: "P", license: "NOS2338677", name: "Dip N Dots/ Sub", status: "ACTIVE" },
-  { unit: "325", type: "P", license: "", name: "Tostitos Nacho Cart", status: "NEEDED" },
-  { unit: "325", type: "P", license: "NOS2334414", name: "Arepa Cart / Sub", status: "ACTIVE" },
-  { unit: "325", type: "P", license: "", name: "Hot Dog", status: "NEEDED", note: "Check if can be combined with current Arepa cart in 325" },
-  { unit: "327", type: "C", license: "NOS2319798", name: "Fan Favorites", status: "ACTIVE" },
-  { unit: "329", type: "S", license: "NOS2321412", name: "Crisppis Chicken", status: "ACTIVE" },
-  { unit: "332", type: "S", license: "NOS2324673", name: "Seed", status: "ACTIVE" },
-  { unit: "336", type: "C", license: "NOS2319792", name: "Cantaloupe", status: "ACTIVE" },
-  { unit: "338", type: "P", license: "NOS2334407", name: "Sizzle & Dippin Dots / Sub", status: "ACTIVE" },
-  { unit: "338", type: "P", license: "", name: "Fuku", status: "NEEDED", note: "Check if can be combined with current DippNDots / Sizzle carts in 338" },
-  { unit: "338", type: "P", license: "", name: "Walking Tacos", status: "NEEDED" },
-  { unit: "338", type: "P", license: "", name: "Arepas Lemonade", status: "NEEDED" },
-  { unit: "340", type: "S", license: "NOS2319791", name: "Tacotomia", status: "ACTIVE" },
-  { unit: "342", type: "P", license: "NOS2334409", name: "Mr Chory", status: "ACTIVE" },
-  { unit: "345", type: "C", license: "NOS2319790", name: "Little Caesar", status: "ACTIVE" },
-  { unit: "345A", type: "C", license: "NOS2334857", name: "AIFI Smashed Burger", status: "ACTIVE" },
-  { unit: "347", type: "S", license: "NOS2326622", name: "Lucky Chicken", status: "ACTIVE" },
-  { unit: "347A", type: "C", license: "NOS2334856", name: "AIFI Edgewater Grill", status: "ACTIVE" },
-  { unit: "350", type: "S", license: "NOS2326620", name: "Sol Cubano", status: "ACTIVE" },
-  { unit: "351", type: "P", license: "", name: "Tostitos Nacho Cart", status: "NEEDED" },
-  { unit: "350", type: "P", license: "NOS2338678", name: "Dip N Dots/ Sub", status: "ACTIVE" },
-  { unit: "350", type: "P", license: "", name: "SHAWARMA", status: "REQUESTED" },
-  { unit: "354", type: "P", license: "NOS2334404", name: "Arepa Cart (Sub)", status: "ACTIVE" },
-  { unit: "354", type: "P", license: "", name: "Hot Dog", status: "NEEDED", note: "Check if can be combined with current Arepa cart in 354" },
-  { unit: "355", type: "C", license: "NOS2326624", name: "Fan Favorite", status: "ACTIVE" },
-  { unit: "External", type: "C", license: "NOS2336936", name: "Training Facility Batist.", status: "ACTIVE" },
-  { unit: "G", type: "K", license: "NOS2324068", name: "Main Kitchen", status: "ACTIVE" },
-  { unit: "G", type: "K", license: "NOS2334853", name: "Lexus North Club & Main Warehouse", status: "ACTIVE" },
-  { unit: "G", type: "K", license: "NOS2334854", name: "72 Club South/East", status: "ACTIVE" },
-  { unit: "147", type: "K", license: "SEA2338350", name: "Nine", status: "ACTIVE" },
-  { unit: "204", type: "K", license: "NOS2321413", name: "M Club Liv Kitchen", status: "ACTIVE" },
-  { unit: "232", type: "K", license: "NOS2324071", name: "Suite Kitchen", status: "ACTIVE" },
-];
+let LICENSE_REGISTRY = []; // v571: src/home/seed.js (home venue only)
 
 function licTypeForLocationType(lt) {
   if (!lt) return "";
@@ -1587,7 +1157,8 @@ function lookupLicenseByUnitType(unitVal, locationType) {
   return active.length === 1 ? active[0] : null; // ambiguous without a type — do not guess
 }
 
-const LICENSE_NAME_BY_NUMBER = (() => {
+let LICENSE_NAME_BY_NUMBER = {};
+const buildNameByNumber = () => {
   const byNum = {};
   for (const key of Object.keys(LICENSE_SEED)) {
     const dashIdx = key.indexOf(" - ");
@@ -1605,7 +1176,46 @@ const LICENSE_NAME_BY_NUMBER = (() => {
     if (names.size === 1) result[num] = [...names][0];
   }
   return result;
-})();
+};
+
+// v571: load + apply the home venue's tables. main.jsx awaits bootHomeSeed() before the first render, so every stand id,
+// placement and follow-up key is built with the sheet present (same as before). A copy is kept on the phone for offline boots.
+const HOME_SEED_LS = "sdx_home_seed_v1";
+let _homeSeedData = null;
+export function loadHomeSeedData() {
+  if (_homeSeedData) return Promise.resolve(_homeSeedData);
+  return import("./home/seed.js").then(m => (_homeSeedData = m.default));
+}
+function applyHomeSeed(sd) {
+  if (!sd || VENUE_ID !== "default") return false;
+  _homeSeedData = sd;
+  LICENSE_REGISTRY = Array.isArray(sd.registry) ? sd.registry : [];
+  LICENSE_SEED = sd.aliases || {};
+  FU_SHARED_SEED = sd.fuShared || {};
+  STAND_SLUG_ALIASES = sd.slugAliases || {};
+  UNIT_FLOOR_OVERRIDES = sd.unitFloors || {};
+  STAND_FLOOR_BY_NAME = (sd.floorByName || []).map(([src, flags, floor]) => [new RegExp(src, flags), floor]);
+  _homeLabel = sd.label || "";
+  LICENSE_SEED_NORM = buildSeedNorm();
+  LICENSE_SEED_BY_NUMBER = buildSeedByNumber();
+  LICENSE_SEED_BY_NAME = buildSeedByName();
+  LICENSE_NAME_BY_NUMBER = buildNameByNumber();
+  return true;
+}
+export async function bootHomeSeed() {
+  if (VENUE_ID !== "default") return;
+  const ver = typeof __SDX_VERSION__ !== "undefined" ? __SDX_VERSION__ : "dev";
+  let cached = null;
+  try { cached = JSON.parse(localStorage.getItem(HOME_SEED_LS) || "null"); } catch {}
+  if (cached && cached.ver === ver && cached.data && applyHomeSeed(cached.data)) return;
+  try {
+    const sd = await loadHomeSeedData();
+    applyHomeSeed(sd);
+    try { localStorage.setItem(HOME_SEED_LS, JSON.stringify({ ver, data: sd })); } catch {}
+  } catch {
+    if (cached?.data) applyHomeSeed(cached.data); // offline on a new version: the last copy beats an empty sheet
+  }
+}
 
 /**
  * Look up a license number from the seed tables using multiple strategies:
@@ -2120,7 +1730,7 @@ function buildEquipFromMemory(equipItems) {
 // v566: no real badge lives in the code (the repo is public). The owner signs in with the home venue's global_admin
 // record; a new venue gets its first admin from the one-time Venue admin invite (v563). LOCAL MODE ONLY (no cloud — the
 // test harnesses): a stand-in owner with a made-up badge, so a fresh device can sign in. Never used online.
-const LOCAL_TEST_ADMIN = { badge: "990001", name: "Joxel Da Silva", department: "Administration" };
+const LOCAL_TEST_ADMIN = { badge: "990001", name: "Local Test Admin", department: "Administration" };
 // The App Store / marketing demo badge — public on purpose, opens only the demo venue
 const DEMO_BADGE = "448800";
 const DEMO_BADGE_MSG = "448800 is the demo badge \u2014 it only opens the demo.";
@@ -2381,24 +1991,6 @@ async function ensureAppReviewUser() {
   } catch { /* non-fatal */ }
 }
 
-async function ensureHardRockVenue() {
-  if (!FIREBASE_ON) return;
-  try {
-    const ref = venueRegistryDoc("default");
-    if (!ref) return;
-    const snap = await getDoc(ref);
-    if (snap.exists()) return; // already registered
-    await setDoc(ref, {
-      name: "Hard Rock Stadium",
-      type: "stadium",
-      address: "347 Don Shula Dr, Miami Gardens, FL 33056",
-      status: "active",
-      createdAt: new Date().toISOString(),
-      createdBy: "system",
-      note: "Primary venue — all legacy data lives under venue ID \"default\"",
-    });
-  } catch (e) { console.error("ensureHardRockVenue error:", e); }
-}
 
 /* ── Inspection History ───────────────────────────────────── */
 let _cryptoKey = null;
@@ -2693,7 +2285,8 @@ async function loadVenueSetupN(venueId) {
     stands = Object.entries(kreg.items || {}).filter(([id, k]) => k && !hidden[id] && (k.site || k.unit))
       .map(([id, k]) => ({ ...k, id: canonStandId(id), posterAt: printed[id]?.at || k.posterAt || 0 }));
     if (venueId === "default") {
-      for (const sd of standSeeds(LICENSE_REGISTRY)) {
+      const homeRows = VENUE_ID === "default" ? LICENSE_REGISTRY : ((await loadHomeSeedData().catch(() => null))?.registry || []);
+      for (const sd of standSeeds(homeRows)) {
         if (hidden[sd.id] || stands.some(k => k.id === sd.id || (normUnit(k.unit) === normUnit(sd.unit) && sameStandName(k.site, sd.site)))) continue;
         stands.push({ ...sd, posterAt: printed[sd.id]?.at || 0 });
       }
@@ -2707,32 +2300,8 @@ async function loadVenueSetupN(venueId) {
 }
 
 /* ── AI Analytics Persistence ────────────────────────────── */
-async function persistAnalyticsSnapshot(venueId) {
-  if (!FIREBASE_ON) return;
-  try {
-    const snapshot = AIEngine.getSnapshot();
-    if (!snapshot) return;
-    const aCol = venueId === "default"
-      ? collection(db, "analyticsAggregates")
-      : collection(db, "venues", venueId, "analyticsAggregates");
-    await setDoc(doc(aCol, "latest"), {
-      ...snapshot,
-      venueId: venueId || "default",
-      savedAt: new Date().toISOString(),
-    });
-  } catch (e) { console.error("persistAnalyticsSnapshot error:", e); }
-}
-
-async function loadAnalyticsSnapshot(venueId) {
-  if (!FIREBASE_ON) return null;
-  try {
-    const aCol = venueId === "default"
-      ? collection(db, "analyticsAggregates")
-      : collection(db, "venues", venueId, "analyticsAggregates");
-    const snap = await getDoc(doc(aCol, "latest"));
-    return snap.exists() ? snap.data() : null;
-  } catch { return null; }
-}
+// v571: the analytics snapshot (per-inspector names and counts) is no longer written to the shared database: nothing
+// read it back, and every read there is public until the move to the LLC project.
 
 /* ── HACCP Supervisor Submissions ────────────────────────── */
 // v513 — harness hooks + a small outbox so the final Submit never waits on the network
@@ -3741,7 +3310,7 @@ function BadgeScreen({ onUnlock, inviteRole, crewNotice = "", onAdminInviteUsed 
             <input className="input regInput" value={regName} onChange={e => setRegName(e.target.value)} placeholder="Full name" autoComplete="name" />
             {(inviteRole === "location_manager" || inviteRole === "guest") && (<>
               <div className="regLabel">{inviteRole === "location_manager" ? "The stand you run" : "Your stand"}</div>
-              <StandPickField value={regStand} onPick={setRegStand} placeholder={`Search your stand — name or unit # (e.g. ${isHomeVenue() ? "SOL CUBANO #350" : "NORTH BAR #118"})`}
+              <StandPickField value={regStand} onPick={setRegStand} placeholder={`Search your stand — name or unit # (e.g. NORTH BAR #118)`}
                 hint="Type a few letters of the stand's name or its unit number, then tap it." />
             </>)}
             {inviteRole === "location_manager" && (
@@ -3783,7 +3352,7 @@ function BadgeScreen({ onUnlock, inviteRole, crewNotice = "", onAdminInviteUsed 
               <input className="input regInput" value={regDeptOther} onChange={e => setRegDeptOther(e.target.value)} placeholder="Which department?" />
             )}
             {(regRole === "location_manager" || regRole === "guest") && (
-              <StandPickField value={regStand} onPick={setRegStand} placeholder={`The stand you run — name or unit # (e.g. ${isHomeVenue() ? "SOL CUBANO #350" : "NORTH BAR #118"})`} />
+              <StandPickField value={regStand} onPick={setRegStand} placeholder={`The stand you run — name or unit # (e.g. NORTH BAR #118)`} />
             )}
             <div className="regHint">Your badge # is your sign-in — pick one you'll remember.</div>
             {error && <div className="pinError">{error}</div>}
@@ -3939,7 +3508,7 @@ const NOTE_TYPES = {
       meta: {
         inspectionType: "Event Day",
         inspectionDate: "2026-02-09",
-        inspectorName: "J. Da Silva",
+        inspectorName: "A. Morgan",
       },
       context: {
         kitchen: "Concourse Kitchen \u2014 North Stand",
@@ -4705,7 +4274,7 @@ function crState(ref, author) {
   return a && m.blocked[a] ? "blocked" : "";
 }
 const CR_HIDDEN_TEXT = { removed: "Removed by the venue admin", reported: "Hidden — you reported this", blocked: "Hidden — you blocked this person" };
-const CR_REASONS = [["abusive", "Offensive or abusive"], ["personal", "Personal information"], ["notwork", "Not about the work"], ["spam", "Spam"], ["wrong", "Wrong or misleading"], ["other", "Something else"]];
+const CR_REASONS = [["abusive", "Offensive or abusive"], ["personal", "Personal information"], ["notwork", "Not about the work"], ["spam", "Spam"], ["wrong", "Wrong or misleading"], ["copyright", "Copyright — not theirs to post"], ["other", "Something else"]];
 const crReasonLabel = k => (CR_REASONS.find(r => r[0] === k) || [k, k || "—"])[1];
 const crKindLabel = k => ({ photo: "photo", comment: "comment", message: "message", announcement: "announcement" }[k] || "post");
 const crIsMine = (author, authorHash) => { const me = _currentUser; if (!me) return false; return authorHash ? authorHash === me.badgeHash : !!author && crAuthorKey(author) === crAuthorKey(me.name); };
@@ -4829,7 +4398,7 @@ function LightboxReport({ src }) {
 }
 
 // ── v570: ☰ → My account — who I am, my reports, blocked people, the legal pages, Delete my account ──────────
-const LEGAL_LINKS = [["privacy.html", "Privacy policy"], ["terms.html", "Terms of use"], ["support.html", "Support"]];
+const LEGAL_LINKS = [["privacy.html", "Privacy policy"], ["terms.html", "Terms of use"], ["support.html", "Support"], ["copyright.html", "Copyright"]];
 const legalUrl = page => publicAppBase() + page;
 function LegalLinks({ className }) {
   return (
@@ -5874,7 +5443,7 @@ function issueTypeStyle(itype) {
 // is a different one.
 // v472: "Shawarma Gyros / Sub" became "Shawarma / Sub" — ids stored under the
 // old slug keep resolving (equipment standId, kitchenRegistry keys, verified marks).
-const STAND_SLUG_ALIASES = { shawarmagyrossub: "shawarmasub", shawarmagyros: "shawarma" };
+let STAND_SLUG_ALIASES = {}; // v571: src/home/seed.js
 function canonStandId(id) { const m = /^(u:[^~]+)~(.+)$/.exec(String(id || "")); if (!m) return id; const al = STAND_SLUG_ALIASES[m[2]]; return al ? `${m[1]}~${al}` : id; }
 function canonKeys(obj) { const out = {}; for (const [k, v] of Object.entries(obj || {})) out[canonStandId(k)] = v; return out; }
 function normUnit(u) {
@@ -5884,7 +5453,7 @@ function normUnit(u) {
 // 2xx = Floor 2, 3xx = Floor 3 ("345 A" → Floor 3). Kitchens like "M17" and
 // non-stand units return "" so the manual floor is left alone.
 // Kitchens that don't follow the digit rule — explicit floors
-const UNIT_FLOOR_OVERRIDES = { M47: "Floor 2" };
+let UNIT_FLOOR_OVERRIDES = {}; // v571: src/home/seed.js
 function floorFromUnit(u) {
   const n = normUnit(u);
   if (UNIT_FLOOR_OVERRIDES[n]) return UNIT_FLOOR_OVERRIDES[n];
@@ -5892,7 +5461,7 @@ function floorFromUnit(u) {
   return m ? `Floor ${m[1]}` : "";
 }
 // Stands whose floor is known by name (no unit-number rule applies)
-const STAND_FLOOR_BY_NAME = [[/lexus/i, "Ground Level"], [/main\s*kitchen/i, "Ground Level"], [/nine\s*club/i, "Floor 1"]];
+let STAND_FLOOR_BY_NAME = []; // v571: src/home/seed.js
 function floorByName(name) { const n = String(name || ""); for (const [re, f] of STAND_FLOOR_BY_NAME) if (re.test(n)) return f; return ""; }
 // v563: ONE floor name everywhere — "3", "3rd", "L3", "Lvl 3", "Level 3", "3rd floor", "Piso 3", "Nivel 3" → "Floor 3";
 // "G", "GL", "Ground", "Planta baja" → "Ground Level". Anything else stays as typed ("Mezzanine", "Club Level", "100 Level").
@@ -11522,7 +11091,7 @@ const fuDigits = u => (String(u || "").match(/^\d+/) || [""])[0];
 const FU_UNIT_TAIL = / #(\?|[A-Z0-9][A-Z0-9-]*)$/;
 // Home venue: names the reports used at 2+ units when v564 shipped (live, 2026-10-19), so a phone that only holds the
 // newest reports builds the same keys from the first minute. Later units arrive through venueSettings.followupSharedNames.
-const FU_SHARED_SEED = {"tacotomia":"231 340 341","chefcreole":"150 150A 154 329","mrchory":"142 317 318 342","magiccitydogs":"101 114 129 135","aifiwynwoodwalkthrough":"117A 122A 142A","solcubano":"120 350","sobeq":"104 132 247","aifismashedburger":"142A 345A","aifiedgewatergrill":"150A 317A 319A 347A","shulaburgerfarmsteadpizza":"203 222 250","arepacartsub":"315 354","fanfavorites":"107 327 355","fatboysmashburger":"106 122 150","cheeseburgerbaby":"114 114A 233","fuku":"145 319","cantaloupe":"122 150 150A 308 327 336 355","seed":"117 332","littlecaesar":"142 345","kitchen":"204 M19B M45","bar":"201 210 228 311 342","fanfavorite":"203 355","kosherkorner":"114 129 148 320","seeds":"117 332","stacked":"219 219-","tostitos":"119 122 150","lamilanation":"312 313","aifi":"317 317A 319A 345A 347A","shawarma":"114 135 322","wynwoodwalkthrough":"117 117A 122 122A 142 142A 150 150A","italianvice":"139 340","puffles":"245 318","sweetspot":"107 154 354","pantry":"307 325 342","magiccitydog":"101 114 129 135","smashburger":"106 122","lemonadecart":"104 308 322 337","talkintacos":"231 340","arepacart":"148 307","fanfav":"107 122 135"};
+let FU_SHARED_SEED = {}; // v571: src/home/seed.js (home venue only)
 // Per venue (a Global Admin viewing another venue never mixes its units into this one): nameId → units the reports
 // used, unit → stand slugs the reports used there, the persisted map last read, the history arrays already noted
 const _fuVenues = new Map();
@@ -15738,7 +15307,6 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
           return !!(r.siteNumber?.trim()) && !!(r.siteName?.trim()) && !!(r.restaurantLicense?.trim());
         });
         AIEngine.learnFromHistory(qualifiedList);
-        persistAnalyticsSnapshot(managedVenueId || VENUE_ID);
       }
     });
   }, [managedVenueId, filterDateFrom, filterDateTo]);
@@ -23666,7 +23234,7 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus, onFocu
                   <label className="walkLbl">Stand type</label>
                   <div className="walkChips">{LOCATION_TYPES.map(t => <button key={t} type="button" className={"walkChip" + (standEdit.locType === t ? " on" : "")} onClick={() => setStandEdit(f => ({ ...f, locType: t }))}>{t}</button>)}</div>
                   <label className="walkLbl">License #</label>
-                  <input className="input" value={standEdit.license} onChange={e => setStandEdit(f => ({ ...f, license: e.target.value }))} placeholder={isLicenseExemptType(standEdit.locType) ? `No license needed for a ${standEdit.locType}` : lic?.license ? `License on file: ${lic.license}` : (isHomeVenue() ? "e.g. NOS2319802" : "License #")} />
+                  <input className="input" value={standEdit.license} onChange={e => setStandEdit(f => ({ ...f, license: e.target.value }))} placeholder={isLicenseExemptType(standEdit.locType) ? `No license needed for a ${standEdit.locType}` : lic?.license ? `License on file: ${lic.license}` : "License #"} />
                   <div className="walkFillActions">
                     <button type="button" className="btn btnGhost" onClick={() => setStandEdit(null)}>Cancel</button>
                     <button type="button" className="btn btnPrimary" disabled={!standEdit.site.trim()} onClick={() => saveStandEdit(sf)}>💾 Save stand</button>
@@ -25550,7 +25118,7 @@ function KitchenQrPage({ onBack, onPrintLabels, onStandEquipment, canSetup = tru
                   <div className="licEditGrid">
                     <input className="input" placeholder="Unit #" value={licEdit.unit} onChange={e => setLicEdit(f => ({ ...f, unit: e.target.value }))} />
                     <input className="input" placeholder="Stand name" value={licEdit.name} onChange={e => setLicEdit(f => ({ ...f, name: e.target.value }))} />
-                    <input className="input" placeholder="License # (e.g. NOS2319780)" value={licEdit.license} onChange={e => setLicEdit(f => ({ ...f, license: e.target.value }))} />
+                    <input className="input" placeholder="License # (e.g. DEMO-10421)" value={licEdit.license} onChange={e => setLicEdit(f => ({ ...f, license: e.target.value }))} />
                     <input className="input" placeholder="Note (optional)" value={licEdit.note} onChange={e => setLicEdit(f => ({ ...f, note: e.target.value }))} />
                   </div>
                   <div className="walkLbl">Type</div>
@@ -25569,7 +25137,7 @@ function KitchenQrPage({ onBack, onPrintLabels, onStandEquipment, canSetup = tru
                   {pending.length === 0 && <div style={{ fontSize: "0.8rem", color: "var(--ink-500)" }}>Every stand has a license. 🎉</div>}
                   <button type="button" className="licToggle" style={{ marginTop: 6 }} onClick={() => setShowAllLic(v => !v)}>{showAllLic ? "Hide" : "Show"} all {rowsAll.length} rows (fix a number)</button>
                   {showAllLic && [...active, ...fileRef].map(licRow)}
-                  <div style={{ fontSize: "0.72rem", color: "var(--ink-400)", marginTop: 6 }}>Source: INDEX_LICENSES_HR_STADIUM_2026 · NEW 2026 sheet{edited ? ` + your updates (${edited} row${edited !== 1 ? "s" : ""})` : ""}. Tap ✎ Update when a license is requested or issued.</div>
+                  <div style={{ fontSize: "0.72rem", color: "var(--ink-400)", marginTop: 6 }}>Source: your license sheet{edited ? ` + your updates (${edited} row${edited !== 1 ? "s" : ""})` : ""}. Tap ✎ Update when a license is requested or issued.</div>
                 </div>
               )}
             </div>
@@ -25693,7 +25261,7 @@ function KitchenQrPage({ onBack, onPrintLabels, onStandEquipment, canSetup = tru
               {LOCATION_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
             <input value={addUnit} data-testid="kqr-add-unit" onChange={e => onAddUnitChange(e.target.value)} placeholder="Unit #" style={{ flex: "0 1 110px", minWidth: 0, padding: "0.55rem 0.75rem", borderRadius: 8, border: "1.5px solid var(--sdx-gray-200)", fontSize: "16px", background: "var(--surface-1)", color: "var(--ink-900)" }} />
-            <input value={addSite} data-testid="kqr-add-name" onChange={e => setAddSite(e.target.value)} placeholder={isHomeVenue() ? "Stand name (e.g. TACOTOMIA)" : "Stand name (e.g. NORTH BAR)"} style={{ flex: "2 1 200px", minWidth: 0, padding: "0.55rem 0.75rem", borderRadius: 8, border: "1.5px solid var(--sdx-gray-200)", fontSize: "16px", background: "var(--surface-1)", color: "var(--ink-900)" }} />
+            <input value={addSite} data-testid="kqr-add-name" onChange={e => setAddSite(e.target.value)} placeholder="Stand name (e.g. NORTH BAR)" style={{ flex: "2 1 200px", minWidth: 0, padding: "0.55rem 0.75rem", borderRadius: 8, border: "1.5px solid var(--sdx-gray-200)", fontSize: "16px", background: "var(--surface-1)", color: "var(--ink-900)" }} />
             <input value={addFloor} data-testid="kqr-add-floor" list="kqr-floor-list" onChange={e => setAddFloor(e.target.value)} onBlur={() => setAddFloor(f => normFloor(f))} placeholder="Floor" style={{ flex: "0 1 110px", minWidth: 0, padding: "0.55rem 0.75rem", borderRadius: 8, border: "1.5px solid var(--sdx-gray-200)", fontSize: "16px", background: "var(--surface-1)", color: "var(--ink-900)" }} />
             <input value={addLicense} data-testid="kqr-add-license" onChange={e => setAddLicense(e.target.value)} placeholder={isLicenseExemptType(addType) ? `🪪 No license needed for a ${addType}` : addLicHint ? `🪪 License (on file: ${addLicHint})` : "🪪 License #"} title="Business / food service license number for this stand"
               style={{ flex: "1 1 170px", minWidth: 0, padding: "0.55rem 0.75rem", borderRadius: 8, border: `1.5px solid ${addLicHint && !addLicense ? "#86efac" : "var(--sdx-gray-200)"}`, fontSize: "16px", background: "var(--surface-1)", color: "var(--ink-900)" }} />
@@ -26413,7 +25981,7 @@ function GlobalAdminPanel({ currentUser, onBack, onManageVenue, onEnterVenue, on
                 {addError && <div style={{ background: "var(--tint-red-2)", color: "#991b1b", borderRadius: 6, padding: "0.5rem 0.75rem", marginBottom: "0.5rem", fontSize: "0.85rem" }}>{addError}</div>}
                 <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
                   <input value={addId} onChange={e => setAddId(e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, ""))}
-                    placeholder="Venue ID (slug, e.g. hard-rock-stadium)" required
+                    placeholder="Venue ID (slug, e.g. riverside-arena)" required
                     style={{ padding: "0.55rem 0.75rem", borderRadius: 7, border: "1.5px solid #e2e8f0", fontSize: "0.9rem" }} />
                   <input value={addName} onChange={e => setAddName(e.target.value)}
                     placeholder="Display Name (e.g. Riverside Arena)" required
@@ -26466,7 +26034,7 @@ function GlobalAdminPanel({ currentUser, onBack, onManageVenue, onEnterVenue, on
                 <div key={gid || "direct"}>
                   {groups.length > 1 && (
                     <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "1.1rem 0 0.5rem", fontSize: "0.72rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-500)" }}>
-                      <span>🏢 {gid ? clientName(gid) : "Sodexo Live! (direct)"}</span>
+                      <span>🏢 {gid ? clientName(gid) : "Direct venues"}</span>
                       <span style={{ flex: 1, height: 1, background: "var(--sdx-gray-200)" }} />
                       <span style={{ fontWeight: 600, textTransform: "none", letterSpacing: 0 }}>{byClient[gid].length} venue{byClient[gid].length !== 1 ? "s" : ""}</span>
                     </div>
@@ -27220,7 +26788,7 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
                           🎪 {new Date(editingEventDate + "T12:00:00").toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" })}
                         </span>
                         <input className="input" value={editingEventName} autoFocus
-                          placeholder="Event name (e.g. Dolphins vs Jets)"
+                          placeholder="Event name (e.g. Home game vs. visitors)"
                           onChange={e => setEditingEventName(e.target.value)}
                           style={{ flex: "1 1 170px", fontSize: "16px", padding: "6px 9px" }} />
                         <button type="button" disabled={!editingEventName.trim()}
@@ -27534,7 +27102,7 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
                 )}
                 {(editProfile.role === "location_manager" || editProfile.role === "guest") && (
                   <label className="field"><span className="fieldLabel">Assigned stand / location</span>
-                    <input className="input" value={editProfile.assignedLocation} placeholder="e.g. SOL CUBANO #350" onChange={e => setEditProfile(p => ({ ...p, assignedLocation: e.target.value }))} />
+                    <input className="input" value={editProfile.assignedLocation} placeholder="e.g. NORTH BAR #118" onChange={e => setEditProfile(p => ({ ...p, assignedLocation: e.target.value }))} />
                   </label>
                 )}
                 <div style={{ fontSize: "0.76rem", color: "var(--ink-500)" }}>{REQUEST_ROLES.find(r => r.value === editProfile.role)?.help || "Full access to reports, settings and users."} Takes effect at their next sign-in.</div>
@@ -31503,6 +31071,7 @@ function EquipCheckPortal({ tag: tag0 }) {
           </>
         )}
       </div>
+      <LegalLinks className="portalLegal" />
     </div>
   );
 }
@@ -31540,6 +31109,8 @@ function HaccpPortal() {
     setSessionId(newSessionId);
     saveHaccpSubmission({ id: `supident_${Date.now()}_${Math.random().toString(16).slice(2)}`, type: "ident", sessionId: newSessionId, reportId: urlReportId, supervisorName: urlName, supervisorPhone: urlPhone, site: urlSite, unit: urlUnit, floor: urlFloor, locationType: urlLocType, viaLink: true, submittedAt: new Date().toISOString() }).catch(() => {});
     setStep("form");
+    // v571: the texted link carries the person's name + phone — take them out of the address bar (history, shared screenshots)
+    try { const u = new URL(location.href); u.searchParams.delete("n"); u.searchParams.delete("p"); history.replaceState(history.state, "", u.pathname + (u.search || "") + u.hash); } catch {}
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (step !== "form" || !urlWaste) return; setWasteOpen(true); setWaste(w => w.length ? w : [{ id: `w${Date.now()}`, item: "", qty: "", unit: "", reason: "" }]); const id = setTimeout(() => { try { document.getElementById("waste-sec")?.scrollIntoView({ behavior: "smooth", block: "start" }); } catch {} }, 700); return () => clearTimeout(id); }, [step]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (step !== "form" || !urlCoolers) return; const id = setTimeout(() => { try { document.querySelector(".htEquipCard")?.scrollIntoView({ behavior: "smooth", block: "start" }); } catch {} }, 700); return () => clearTimeout(id); }, [step]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -33299,6 +32870,7 @@ function HaccpPortal() {
       {step === "done" && (
         <div className="haccpRefWrap"><div className="haccpRefLead">{L("While you're here — the food safety quick reference:", "Ya que está aquí — la referencia rápida de seguridad alimentaria:")}</div><FoodSafetyRef lang={pl} portal defaultOpen headerOffset={8} /></div>
       )}
+      <LegalLinks className="portalLegal" />
     </div>
   );
 }
@@ -34382,13 +33954,13 @@ export default function App() {
     // session (v488 signs it in on every load) brought a dark venue / personal theme in: light text on the white card.
     const portalPage = (IS_HACCP_PORTAL && !QR_OPEN_AS_INSPECTOR) || (!!EQUIP_PORTAL_TAG && !EQUIP_OPEN_AS_INSPECTOR);
     applyTheme(
-      portalPage ? "sodexo" : currentUser ? (personalTheme || venueSettings?.theme) : "sodexo",
+      portalPage ? "classic" : currentUser ? (personalTheme || venueSettings?.theme) : "classic",
       personalAccent || venueSettings?.blackAccent
     );
     // Client brand color: on white-label venues the client's primary color
     // becomes the chrome/brand color everywhere, login screen included.
     const brand = (venueSettings?.primaryColor || "").trim();
-    const activeTheme = portalPage ? "sodexo" : currentUser ? (personalTheme || venueSettings?.theme) : "sodexo";
+    const activeTheme = themeIdOf(portalPage ? "classic" : currentUser ? (personalTheme || venueSettings?.theme) : "classic");
     if (VENUE_ID !== "default" && /^#[0-9a-fA-F]{6}$/.test(brand) && activeTheme !== "black") {
       document.documentElement.style.setProperty("--sdx-navy", brand);
       // Derive darker companions so the login gradient is fully the brand's world
@@ -35206,7 +34778,7 @@ export default function App() {
         setInspection(prev => ({ ...prev, equipment: restoredEquip }));
       }
     }
-    // License auto-fill (Hard Rock Stadium only for seed lookup)
+    // License auto-fill (home venue only for seed lookup)
     if (!lock && !restaurantLicense) {
       // invLicenseData lives in the analytics panel, not here — never let a missing map throw mid-typing
       const licEntry = (typeof invLicenseData === "object" && invLicenseData) ? invLicenseData[val] : null;
@@ -37381,7 +36953,6 @@ export default function App() {
       });
       const { list: allHistory } = await loadHistory(undefined, { pageSize: 2000 });
       AIEngine.learnFromInspection(record, allHistory);
-      persistAnalyticsSnapshot(VENUE_ID);
     } catch { /* AI learning is best-effort */ }
   }
   // v553: take the inspector to the box the database is waiting for.
@@ -38262,7 +37833,7 @@ export default function App() {
                     reportStartedAt.current = Date.now();
                   }
                   setInspectorName(e.target.value);
-                }} placeholder="e.g., J. Da Silva" />
+                }} placeholder="e.g., A. Morgan" />
                 {fieldCorrections["field-inspectorName"] && <FieldCorrectionBanner correction={fieldCorrections["field-inspectorName"]} />}
               </label>
               <label className="field" id="field-participantName">
@@ -39916,14 +39487,14 @@ export default function App() {
               </p>
               <div className="themeGrid">
                 {THEMES.map(t => {
-                  const active = (personalTheme || venueSettings?.theme || "sodexo") === t.id;
+                  const active = themeIdOf(personalTheme || venueSettings?.theme || "classic") === t.id;
                   // Branded venues: the Classic card wears the brand's own color and name
                   const brandHex = VENUE_ID !== "default" && /^#[0-9a-fA-F]{6}$/.test(_vs.primaryColor || "") ? _vs.primaryColor : "";
                   const shade = (hex, f) => "#" + [1, 3, 5].map(i => Math.min(255, Math.round(parseInt(hex.slice(i, i + 2), 16) * f)).toString(16).padStart(2, "0")).join("");
-                  const swatch = t.id === "sodexo" && brandHex
+                  const swatch = t.id === "classic" && brandHex
                     ? `linear-gradient(135deg, ${brandHex} 0%, ${shade(brandHex, 0.55)} 100%)`
                     : t.swatch;
-                  const cardName = t.id === "sodexo" && brandHex && _vs.companyName ? _vs.companyName : t.name;
+                  const cardName = t.id === "classic" && brandHex && _vs.companyName ? _vs.companyName : t.name;
                   return (
                     <button key={t.id} type="button"
                       className={`themeCard${active ? " active" : ""}`}

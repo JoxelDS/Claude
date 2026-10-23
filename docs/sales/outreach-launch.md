@@ -38,20 +38,21 @@ It has the 40-second video, **Try the live demo** (badge 448800) and **Start a f
 >
 > I'm a food-safety inspector for a large venue, and I built SDX Inspect for my own walks. One phone checklist covers every stand, and temperatures are flagged the moment they're typed. Problems are saved with a BEFORE photo, and crews close them with an AFTER photo. Stand teams log their own temps by scanning a QR poster — no app or password.
 >
-> Would you try it free for 30 days at a few {stands / locations}? It takes about 20 minutes to start.
+> Would you try it free for 30 days at a few {stands / locations}? No card and no automatic charge — after 30 days you decide. It takes about 20 minutes to start.
 >
 > Joxel Da Silva · SDX Inspect
-> {mailing address} · Reply "no thanks" and I won't email again.
+>
+> Sales email from SDX Inspect (JoxelBusiness LLC) · {mailing address} · Reply "no thanks" or tap Unsubscribe (mailto:{reply address}?subject=unsubscribe) and I won't email again.
 
-**Email 2 (day 4). Subject: "Re: {Org}: food safety checks on one phone"**
+**Email 2 (day 4) — send it as a reply in email 1's thread. In a new thread the subject is "{Org}: 40 seconds on food-safety follow-ups" (never a fake "Re:").**
 > Hi {Name}, here's 40 seconds on how a problem gets found, fixed and proved with BEFORE and AFTER photos: https://joxelds.github.io/Claude/marketing/watch/ — the free 30-day pilot is there too. — Joxel
 >
-> {mailing address} · Reply "no thanks" and I won't email again.
+> Sales email from SDX Inspect (JoxelBusiness LLC) · {mailing address} · Reply "no thanks" or tap Unsubscribe (mailto:{reply address}?subject=unsubscribe) and I won't email again.
 
 **Email 3 (day 11). Subject: "Close the loop?"**
 > Hi {Name}, last note from me. If food-safety checks across your {stands / locations} are already covered, no problem. If not, the 30-day pilot is free and takes about 20 minutes to start. — Joxel
 >
-> {mailing address} · Reply "no thanks" and I won't email again.
+> Sales email from SDX Inspect (JoxelBusiness LLC) · {mailing address} · Reply "no thanks" or tap Unsubscribe (mailto:{reply address}?subject=unsubscribe) and I won't email again.
 
 ### Correo 1 (ES). Asunto: "{Org}: inspecciones de seguridad alimentaria en un teléfono"
 > Hola {Name}:
@@ -60,11 +61,12 @@ It has the 40-second video, **Try the live demo** (badge 448800) and **Start a f
 >
 > Soy inspector de seguridad alimentaria en un lugar grande, y creé SDX Inspect para mis propias inspecciones. Una sola lista en el teléfono cubre cada puesto, y las temperaturas se marcan en cuanto se escriben. Los problemas se guardan con una foto de ANTES, y el equipo los cierra con una foto de DESPUÉS. Los equipos de cada puesto registran sus temperaturas escaneando un póster QR, sin app ni contraseña.
 >
-> ¿Le gustaría probarlo gratis 30 días en algunos {puestos / locales}? Empezar toma unos 20 minutos.
+> ¿Le gustaría probarlo gratis 30 días en algunos {puestos / locales}? Sin tarjeta y sin cobro automático — a los 30 días usted decide. Empezar toma unos 20 minutos.
 >
 > Joxel Da Silva · SDX Inspect
-> {dirección postal} · Responda "no, gracias" y no le escribiré más.
+>
+> Correo comercial de SDX Inspect (JoxelBusiness LLC) · {dirección postal} · Responda "no, gracias" o toque Darse de baja (mailto:{reply address}?subject=unsubscribe) y no le escribiré más.
 
 ---
 
-**Before the first email:** the CAN-SPAM footer needs a real mailing address (owner step). Until then, send texts and DMs only.
+**Before the first email:** the footer needs the virtual street address (owner step) and a monitored reply / unsubscribe mailbox. Until both exist, no email is sent — texts and DMs only. Every email says it is a sales email, has the address and a working unsubscribe, and opt-outs are honored the same day (rules in `playbook.md`).

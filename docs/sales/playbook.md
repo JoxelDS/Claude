@@ -24,21 +24,29 @@ Hi {Name or team},
 
 {One specific line about them — e.g. "With 40+ stands at {venue}, event-day checks must be a lot of ground to cover."}
 
-I'm an inspector at a 100+ stand stadium in Miami, and I built SDX Inspect for my own walks: one phone checklist for every stand, temperatures flagged the second they're typed, problems saved with a BEFORE photo, and crews closing them with an AFTER photo. Stand teams log their own temps by scanning a QR poster, no app or password.
+I'm a food-safety inspector for a large venue, and I built SDX Inspect for my own walks: one phone checklist for every stand, temperatures flagged the second they're typed, problems saved with a BEFORE photo, and crews closing them with an AFTER photo. Stand teams log their own temps by scanning a QR poster, no app or password.
 
-Would you try it free for 30 days at a few {stands / locations}? I set it up and train your team.
+Would you try it free for 30 days at a few {stands / locations}? No card and no automatic charge — after 30 days you decide. It takes about 20 minutes to start.
 
 Joxel Da Silva
 SDX Inspect
-{mailing address} · Reply "no thanks" and I won't email again.
+{FOOTER}
 
-**Email 2 (day 4) — subject: "Re: {Org}: food safety checks on one phone"**
+**Email 2 (day 4) — sent as a reply in email 1's thread (a new thread gets the subject "{Org}: 40 seconds on food-safety follow-ups", never a fake "Re:")**
 Hi {Name}, 40 seconds on how a problem gets found, fixed and proved with BEFORE and AFTER photos: https://joxelds.github.io/Claude/marketing/watch/. Happy to set up a free 30-day pilot whenever it suits you. — Joxel
+
+{FOOTER}
 
 **Email 3 (day 11) — subject: "Close the loop?"**
 Hi {Name}, last note from me. If food-safety checks across your {stands / locations} are already covered, no problem. If not, the 30-day pilot is free and takes 20 minutes to start. — Joxel
 
-Every email ends with the mailing address and the opt-out line (CAN-SPAM). "No thanks" / "unsubscribe" → stage `lost`, never contact again.
+{FOOTER}
+
+**{FOOTER} — the same in every sales email, added by the sender, never written by the AI (CAN-SPAM):**
+> Sales email from SDX Inspect (JoxelBusiness LLC) · {mailing address} · Reply "no thanks" or tap [Unsubscribe](mailto:{reply address}?subject=unsubscribe) and I won't email again.
+> ES: Correo comercial de SDX Inspect (JoxelBusiness LLC) · {dirección postal} · Responda "no, gracias" o toque [Darse de baja](mailto:{reply address}?subject=unsubscribe) y no le escribiré más.
+
+**Rules:** no email goes out while `{mailing address}` is empty (a virtual street address — Joxel's choice, 2026-10-23). Before every batch, read the replies: STOP / unsubscribe / remove / "no thanks" / "no, gracias" → stage `lost` at once and on the permanent do-not-email list (the law allows 10 business days; we do it the same day). The unsubscribe mailbox is read for at least 30 days after the last email. The DMs in `outreach-launch.md` are the same copy.
 
 ## Instagram DMs (sent by Joxel by hand; Instagram does not allow automated cold DMs)
 - Only to businesses with a public business Instagram. One DM, plus at most one follow-up a week later.

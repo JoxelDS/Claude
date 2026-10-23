@@ -59,6 +59,17 @@ service cloud.firestore {
           && boolField("approved");
     }
 
+    // v571 Step 0 — with no sign-in, rules can't tell who is writing, but they can stop the worst tampering:
+    // nobody can create or upgrade a record to global_admin (the owner), the owner's record can't be changed
+    // from a phone, and a user doc's id must be its own badge hash.
+    function roleOk() {
+      return request.resource.data.role in ['inspector', 'admin', 'location_manager', 'guest',
+                                            'maintenance', 'cleaning', 'ecolab', 'office'];
+    }
+    function userDocOk(userId) {
+      return validUser() && request.resource.data.badgeHash == userId && roleOk();
+    }
+
     // ── Venue Registry ────────────────────────────────────────────────
     // Public read — venue names / addresses are not sensitive.
     // Writes require a structured venue document. Deletes blocked.
@@ -67,7 +78,8 @@ service cloud.firestore {
       allow create: if notTooLarge()
                     && strField("name",    200)
                     && strField("status",   32);
-      allow update: if notTooLarge()
+      allow update: if venueId != 'default'
+                    && notTooLarge()
                     && strField("name",    200)
                     && strField("status",   32);
       allow delete: if false;
@@ -89,8 +101,11 @@ service cloud.firestore {
     // Only the badgeHash (SHA-256) is stored — no raw badge numbers.
     match /users/{userId} {
       allow read:   if true;
-      allow create: if validUser();
-      allow update: if validUser();
+      // home venue: no new admins from a phone (promote in the console until the move to sign-in)
+      allow create: if userDocOk(userId) && request.resource.data.role != 'admin';
+      allow update: if userDocOk(userId)
+                    && resource.data.role != 'global_admin'
+                    && (request.resource.data.role != 'admin' || resource.data.role == 'admin');
       allow delete: if false;  // Deletions only via admin flow, never arbitrary
     }
 
@@ -154,15 +169,20 @@ service cloud.firestore {
       // it holds FCM device tokens: { tokens: { <token>: {name, role, ts} } }.
       match /sharedMemory/{docId} {
         allow read: if true;
-        allow create, update: if notTooLarge();
+        allow create: if notTooLarge();
+        // v571 Step 0: a write may change or add keys but never drop a top-level key, so one REST call can't
+        // empty the equipment registry or the settings. The drafts doc deletes its own top-level keys.
+        allow update: if notTooLarge()
+                      && (docId == 'inspectionDrafts' || request.resource.data.keys().hasAll(resource.data.keys()));
         allow delete: if false;
       }
 
       // ── Users (venue-scoped) ────────────────────────────────────────
       match /users/{userId} {
         allow read:   if true;
-        allow create: if validUser();
-        allow update: if validUser();
+        // customer venues: admin is allowed (the one-time venue-admin invite), global_admin never
+        allow create: if userDocOk(userId);
+        allow update: if userDocOk(userId) && resource.data.role != 'global_admin';
         allow delete: if false;
       }
 
@@ -236,7 +256,8 @@ service cloud.firestore {
       allow create: if notTooLarge()
                     && strField("inspectorName", 120)
                     && strField("title",         200);
-      allow update: if notTooLarge();   // only used to flip read:true
+      allow update: if notTooLarge()
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);   // only flips read:true
       allow delete: if false;
     }
 

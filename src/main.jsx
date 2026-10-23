@@ -1,6 +1,6 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import App, { AccountHost } from "./App.jsx";
+import App, { AccountHost, bootHomeSeed } from "./App.jsx";
 import LanguageFab from "./LanguageFab.jsx";
 
 // v487 — Google Translate replaces text nodes with its own <font> wrappers,
@@ -158,13 +158,16 @@ class ErrorBoundary extends React.Component {
   });
 })();
 
-ReactDOM.createRoot(document.getElementById("root")).render(
-  <ErrorBoundary>
-    <App />
-    <AccountHost />
-    <LanguageFab />
-  </ErrorBoundary>
-);
+// v571: the home venue's tables (src/home/seed.js) load before the first render — and only on the home venue.
+bootHomeSeed().catch(() => {}).finally(() => {
+  ReactDOM.createRoot(document.getElementById("root")).render(
+    <ErrorBoundary>
+      <App />
+      <AccountHost />
+      <LanguageFab />
+    </ErrorBoundary>
+  );
+});
 
 // v460 — the update banner lives at the BOTTOM (above the report's sticky
 // Save bar when it is showing) so it never hides under the fixed header or

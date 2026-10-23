@@ -20,10 +20,12 @@ const errors = [], warns = [];
 const err = (where, msg) => errors.push(`${where}: ${msg}`);
 const warn = (where, msg) => warns.push(`${where}: ${msg}`);
 
-// ---- banned names: fixed words + the real stand names from LICENSE_REGISTRY (generic food words left out)
+// ---- banned names: fixed words + the real stand names from the home license sheet (generic food words left out)
 const GENERIC = new Set(['arepa cart', 'shawarma', 'seed', 'cantaloupe', 'nine', 'hot dog', 'kosher hot dog', 'main kitchen', 'suite kitchen',
   'walking tacos', 'sweet cream', 'donuts & ice cream', 'fan favorite', 'fan favorites', 'training facility batist.', 'cortadito', 'farmstead', 'puffles']);
-const reg = app.slice(app.indexOf('const LICENSE_REGISTRY = ['), app.indexOf('];', app.indexOf('const LICENSE_REGISTRY = [')));
+// v571: the sheet lives in src/home/seed.js (loaded by the app on the home venue only)
+const seedTxt = fs.readFileSync(path.join(ROOT, 'src/home/seed.js'), 'utf8');
+const reg = seedTxt.slice(seedTxt.indexOf('registry: ['), seedTxt.indexOf('\n],', seedTxt.indexOf('registry: [')));
 const standNames = [...new Set([...reg.matchAll(/name: "([^"]+)"/g)].map((m) => m[1].replace(/\s*\(sub\)/i, '').replace(/\s*\/.*$/, '').trim().toLowerCase()))]
   .filter((n) => n.length > 3 && !GENERIC.has(n));
 const BANNED = ['sodexo', 'hard rock', 'ds marketing', 'dsmarketing', 'joxel', 'servsafe', 'prometric', 'national registry of food safety', 'nrfsp', 'magic city', ...standNames];

@@ -41,14 +41,14 @@ Payment links: one per product (Joxel makes them). Never send the bundled link h
 2. **Domain**: if the client typed one in the custom field, check it; otherwise check `<name>.com`, `<name>miami.com`, `<name>fl.com`, `<shortname>.com` (letters only, ≤ 20 chars). Register the first available one at ≤ $15 (Porkbun `check_domain` → `register_domain`). If none qualifies, ask Joxel with 3 options.
 3. **Build live**: `node tools/ds/site.mjs <lead.json> --mode live --only <slug> --out <scratch>/live` → bundle: copy every `/Claude/p/_img/<slug>-*` and `/Claude/p/_fonts/<file>` the page uses next to it and rewrite those paths to `/img/…` and `/fonts/…`; add `robots.txt` and `sitemap.xml`; `<link rel=canonical>` to the domain.
 4. **Host**: Porkbun `hosting/create` (static, yearly SKU, `acknowledgedCost`, `agreeToNameserverChange`) → poll `hosting/get` until ACTIVE → `hosting/deploy` the files → check `https://<domain>` serves it (HTTPS can take minutes).
-5. **Tell the client**: an email (Gmail via Make) and a DM text for Joxel: "Your site is live: https://<domain> — any change, just reply". Include the Care plan link ($49/mo: hosting, domain renewal, monthly updates) as the next step.
+5. **Tell the client**: an email (Gmail via Make) and a DM text for Joxel: "Your site is live: https://<domain> — any change, just reply". Lead with the delivery (subject: "Your site is live"), then offer Care with the full "Care plan terms" from `ds-websites.md` (never a shorter description), then the sales-email footer.
 6. Pipeline `stage: "live"`, `domain`, `liveAt`. Add the business to `docs/sales/clients.md` (name, domain, plan, dates).
 7. Optional, with the client's OK only: a "new site" post for DS Instagram.
 
 ## Session handoff (when Joxel opens a new session after connecting Stripe / Porkbun)
 1. Read CLAUDE.md, this file, `docs/social/ds/post-queue.md`, `docs/training/pov-studio.md`.
 2. Re-point every routine to the new session: `list_triggers` → for each DS / POV routine, `create_trigger` with the same name, cron and prompt (it binds to the new session by default), then `delete_trigger` the old one. Write the new trigger ids into the pages that fire them: DS Post Queue `settings/main.triggerId`, POV Studio `settings/main.triggerId`.
-3. Stripe: create Products + Prices + Payment Links (Quick Start Website $500 one-time, Growth Site $1,000 one-time, Care $49/month recurring). On each link: collect phone, a custom text field "Domain you'd like (optional)", and the success message "Thank you! Your site goes live within 48 hours. We'll text you the link." Save the link URLs in the pipeline `settings/main` (`payLinks`) and in this file.
+3. Stripe: create Products + Prices + Payment Links (Quick Start Website $500 one-time, Growth Site $1,000 one-time, Care $49/month recurring). On each link: collect phone, a custom text field "Domain you'd like (optional)", (Care only: the required terms box, the renewal text and the customer portal — see "Care plan terms" in `ds-websites.md`), and the success message "Thank you! Your site goes live within 48 hours. We'll text you the link." Save the link URLs in the pipeline `settings/main` (`payLinks`) and in this file.
 4. Porkbun: `ping` (confirm the account), `account/apiSettings` (the limit), and a `dryRun` registration of a test name. Nothing is bought until a client pays.
 5. Run the first daily run.
 
@@ -56,5 +56,10 @@ Payment links: one per product (Joxel makes them). Never send the bundled link h
 - Honest everything: only facts from the business's own public info, real reviews with the platform named, own photos credited, samples labelled. Previews say "free preview … not the official website".
 - Never contact Sodexo, its subsidiaries or clients. No SDX names in DS material.
 - Cold DMs are sent by Joxel by hand from the pipeline page: ≤ 25/day, ≤ 15 per sitting, stop on any Instagram warning.
-- Cold emails: CAN-SPAM footer (mailing address + "Reply STOP"), honour every STOP at once (`prospects.stage = "stop"`), ≤ 40/day from his Gmail at first.
+- Cold emails:
+  - **Never send while `settings/main.mailingAddress` is empty** (Joxel is getting a virtual street address).
+  - Footer, added by the sender scenario, never by the AI: "Sales email from DS Marketing (JoxelBusiness LLC) · {address} · Reply STOP or "no thanks", or tap Unsubscribe (mailto:{reply address}?subject=unsubscribe), and we won't email you again." / ES "Correo comercial de DS Marketing (JoxelBusiness LLC) · {dirección} · Responda STOP o "no, gracias", o toque Darse de baja, y no le escribiremos más."
+  - **Before every batch**, read the replies: STOP / unsubscribe / remove / "no thanks" / "no gracias" → `prospects.stage = "stop"` at once plus a permanent do-not-email list by address. The reply inbox is read for at least 30 days after the last send.
+  - No "Re:" or "Fwd:" on a first email. No subject that pretends they asked for it.
+  - ≤ 40/day. Move cold email to a mailbox on our own domain (SPF / DKIM / DMARC) before scaling — Gmail's policies don't allow cold commercial mail from a personal account.
 - Money: never spend above the Porkbun monthly limit, never top up without Joxel's yes, never refund or charge on Stripe without his yes.

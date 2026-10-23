@@ -34,6 +34,9 @@ jobs:
           # The app lives at joxelds.github.io/<repository name>/ — rename the repo and the address follows
           SDX_BASE: /${{ github.event.repository.name }}/
 
+      # v571: never publish the employer / venue / license numbers / stand names, a session recorder or Google Fonts
+      - run: node tools/check-public.mjs dist
+
       - uses: actions/configure-pages@v4
       - uses: actions/upload-pages-artifact@v3
         with:

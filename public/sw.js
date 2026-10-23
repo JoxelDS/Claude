@@ -2,12 +2,13 @@
 // v119: Restored to July 13 state
 
 
-const CACHE_NAME = "sdx-inspect-v570";
+const CACHE_NAME = "sdx-inspect-v571";
 const BASE = (() => { try { return new URL(self.registration.scope).pathname; } catch { return "/"; } })();
 const PRECACHE = [
   "./favicon.svg",
   "./sdx-inspect.svg",
   "./sdx-inspect-dark.svg",
+  "./fonts/inter.woff2", // v571: Inter is self-hosted
 ];
 
 // Install: precache static assets (NOT the HTML or JS bundles — those use network-first)
@@ -110,20 +111,6 @@ self.addEventListener("fetch", (e) => {
           .catch(() => cached);
         return cached || fetchPromise;
       })
-    );
-    return;
-  }
-
-  // Network-first for Google Fonts
-  if (url.hostname.includes("fonts.googleapis.com") || url.hostname.includes("fonts.gstatic.com")) {
-    e.respondWith(
-      fetch(e.request)
-        .then((res) => {
-          const clone = res.clone();
-          caches.open(CACHE_NAME).then((c) => c.put(e.request, clone));
-          return res;
-        })
-        .catch(() => caches.match(e.request))
     );
     return;
   }

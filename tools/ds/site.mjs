@@ -194,7 +194,7 @@ const stars = (v, id) => {                                  // fractional 5-star
 const STR = {
   en: {
     skip: 'Skip to content', ribbonLabel: 'Preview notice', ribbon: n => `<b>Free preview for ${esc(n)}</b> <span>by DS Marketing</span>`, mine: 'Make it mine',
-    foot: n => `This is a free preview made by DS Marketing. It is not the official website of ${esc(n)}.`,
+    foot: n => `This is a free preview made by DS Marketing. It is not the official website of ${esc(n)}. Is this your business and want something changed or taken down? Message @dsmarketing.agency and we take it down within 24 hours.`,
     dsEye: 'DS Marketing', dsH: 'Like what you see? This website can be yours.', dsList: ['On your own domain', 'Live in 48 hours', 'Your real photos, menu and links'], dsSmall: 'Free preview · no commitment',
     menu: { food: 'The menu', cafe: 'The menu', barber: 'Cuts & prices', nails: 'Services & prices', salon: 'Services & prices', gym: 'The classes', studio: 'The classes', home: 'What we do' },
     menuNP: { nails: 'Our nails', salon: 'Services', barber: 'Services' },
@@ -216,7 +216,7 @@ const STR = {
   },
   es: {
     skip: 'Saltar al contenido', ribbonLabel: 'Aviso de vista previa', ribbon: n => `<b>Vista previa gratis para ${esc(n)}</b> <span>por DS Marketing</span>`, mine: 'La quiero',
-    foot: n => `Esta es una vista previa gratis hecha por DS Marketing. No es la página oficial de ${esc(n)}.`,
+    foot: n => `Esta es una vista previa gratis hecha por DS Marketing. No es la página oficial de ${esc(n)}. ¿Es su negocio y quiere cambiar o quitar algo? Escriba a @dsmarketing.agency y lo quitamos en 24 horas.`,
     dsEye: 'DS Marketing', dsH: '¿Te gusta? Esta página puede ser tuya.', dsList: ['Con tu propio dominio', 'En vivo en 48 horas', 'Con tus fotos, tu menú y tus enlaces'], dsSmall: 'Vista previa gratis · sin compromiso',
     menu: { food: 'La carta', cafe: 'La carta', barber: 'Cortes y precios', nails: 'Servicios y precios', salon: 'Servicios y precios', gym: 'Las clases', studio: 'Las clases', home: 'Lo que hacemos' },
     menuNP: { nails: 'Nuestras uñas', salon: 'Servicios', barber: 'Servicios' },

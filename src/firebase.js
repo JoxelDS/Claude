@@ -49,7 +49,6 @@ const firebaseConfig = {
   storageBucket: "sodexoinspection.firebasestorage.app",
   messagingSenderId: "511560917271",
   appId: "1:511560917271:web:ef71e55659f0088278d752",
-  measurementId: "G-Q8TJ05QSBP",
 };
 
 // Check if Firebase is configured

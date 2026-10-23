@@ -59,7 +59,7 @@ export const OFFER = {
   starter: '$500',          // Quick Start: site live on your own domain in 48 hours
   pro: '$1,000',            // Growth Site (Premium Site is $1,500)
   care: '$49',              // care plan, per month
-  careUnit: '/month',
+  careUnit: '/month · cancel anytime',   // the Care price never appears without how it renews
   keyword: 'WEBSITE',
   delivery: '48 hours',
 };

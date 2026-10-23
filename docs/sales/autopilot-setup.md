@@ -16,7 +16,7 @@ Everything below is a one-time setup that only you can do, because each one chec
 2. **Account → Credit**: save a card and add **$50**. Turn on **auto top-up** ($50 whenever the balance drops under $15).
 3. **porkbun.com/account/api**: set the **monthly API limit** to **$300**. That covers about 20 domains + hosting a month. Claude can never spend more than this, and you get an email for every charge.
 4. Connect it to Claude: https://claude.ai/customize/connectors → **Add custom connector** → URL `https://mcp.porkbun.com/mcp` → sign in → choose **Full access** and tick **"allow API access for all domains"**.
-   Each client costs us about **$11/year (.com) + $3/month hosting**. The first year is inside the $500. After that it's covered by the $49/month care plan.
+   Each client costs us about **$11/year (.com) + $3/month hosting**. The first year is inside the $500. What happens after year 1 without Care is one of the bracketed decisions in "Care plan terms" (`ds-websites.md`) — fill it in before selling Care.
 
 ## 3. Make = more operations for 200 leads a day
 Make → Organization → **Subscription** → raise operations to **40,000 / month** (Core 40k, or Pro). The current 10,000 covers about 50–80 lead checks a day.
