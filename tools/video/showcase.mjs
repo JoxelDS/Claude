@@ -404,7 +404,7 @@ execFileSync(FF, ['-loglevel', 'error', '-y',
 let ln = {}; try { const e = execFileSync('bash', ['-c', `${FF} -hide_banner -i ${wav} -af loudnorm=I=-14:TP=-1.5:LRA=9:print_format=json -f null - 2>&1 | sed -n '/^{/,/^}/p'`]).toString(); ln = JSON.parse(e); } catch {}
 const gain = (-14 - parseFloat(ln.input_i || -14)).toFixed(2);
 execFileSync(FF, ['-loglevel', 'error', '-y', '-framerate', String(FPS), '-i', `${OUT}/f/%05d.jpg`, '-i', wav,
-  '-filter_complex', `[1:a]volume=${gain}dB,alimiter=limit=0.84:level=false,aformat=sample_rates=48000:channel_layouts=stereo[a]`,
+  '-filter_complex', `[1:a]volume=${gain}dB,alimiter=limit=0.74:level=false,aformat=sample_rates=48000:channel_layouts=stereo[a]`,
   '-map', '0:v', '-map', '[a]', '-c:v', 'libx264', '-preset', 'slow', '-crf', '17', '-maxrate', '7M', '-bufsize', '14M', '-pix_fmt', 'yuv420p', '-profile:v', 'high', '-g', '60', '-r', String(FPS),
   '-c:a', 'aac', '-b:a', '160k', '-movflags', '+faststart', '-t', D_, out]);
 console.log('showcase', out, T.toFixed(1) + ' s', N + ' frames', 'gain ' + gain + ' dB (measured ' + ln.input_i + ' LUFS)', ((Date.now() - t0) / 1000).toFixed(0) + ' s');
