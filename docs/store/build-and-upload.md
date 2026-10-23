@@ -39,6 +39,13 @@ What changed for the app in this repo (version v570):
 5. Wait for the email "has completed processing" → TestFlight → install it on the iPhone.
 6. Then continue from step A4.
 
+## Screenshots (Apple: "must show the app in use")
+App Store Connect → the version → **Previews and Screenshots**:
+- **iPhone 6.9" Display:** remove any sign-in / splash screenshots and drag in the 7 files from `docs/store/screenshots/iphone-69/` (1320 × 2868).
+- **iPad 13" Display:** the 7 files from `docs/store/screenshots/ipad-13/` (2064 × 2752).
+
+The order is the story: inspection → open problems with a BEFORE photo → Follow-ups → BEFORE / AFTER → the crew board → equipment temps → the stand's temperature log. They are all from the demo venue with made-up stands and people.
+
 ## Before you record: check on the iPhone
 - **Camera:** 📷 BEFORE on a checklist row asks for camera permission (once) and takes a photo.
 - **QR scanner:** 📷 Scan stand QR opens the camera.
