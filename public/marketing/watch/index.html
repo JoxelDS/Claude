@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Watch SDX Inspect</title>
+<meta name="description" content="40 seconds: how a venue finds a food-safety problem, sends it to the crew and gets proof it was fixed — with BEFORE and AFTER photos. Try the live demo or start a free 30-day pilot.">
+<link rel="canonical" href="https://joxelds.github.io/Claude/marketing/watch/">
+<meta property="og:title" content="Watch SDX Inspect — find it, fix it, prove it">
+<meta property="og:description" content="40 seconds: a problem found on the walk, sent to the crew, fixed with BEFORE and AFTER photos. Try the live demo.">
+<meta property="og:type" content="video.other">
+<meta property="og:url" content="https://joxelds.github.io/Claude/marketing/watch/">
+<meta property="og:image" content="https://joxelds.github.io/Claude/marketing/video/sdx-explainer40.jpg">
+<meta property="og:video" content="https://joxelds.github.io/Claude/marketing/video/sdx-explainer40.mp4">
+<meta property="og:video:type" content="video/mp4">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://joxelds.github.io/Claude/marketing/video/sdx-explainer40.jpg">
+<link rel="icon" href="../../sdx-inspect-icon.svg" type="image/svg+xml">
+<style>
+  :root {
+    --navy: #2A295C; --navy-deep: #16152E; --teal: #14B8A6; --red: #E3262F;
+    --ink: #1C1F2E; --muted: #5B6072; --ground: #F5F6FA; --card: #FFFFFF; --line: #E3E5EE;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --ink: #E9EAF2; --muted: #A9ADC0; --ground: #0F1020; --card: #181A2E; --line: #2A2D46; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Arial, sans-serif; background: var(--ground); color: var(--ink); line-height: 1.6; -webkit-text-size-adjust: 100%; }
+  .top { background: radial-gradient(120% 90% at 50% 0%, #34338a 0%, var(--navy) 45%, var(--navy-deep) 100%); color: #fff; padding: calc(28px + env(safe-area-inset-top)) 16px 120px; text-align: center; }
+  .brand { display: inline-flex; align-items: center; gap: 10px; font-weight: 800; letter-spacing: .02em; font-size: 1.02rem; color: #fff; text-decoration: none; }
+  .brand svg { width: 30px; height: 30px; }
+  h1 { font-size: clamp(1.75rem, 6vw, 2.7rem); line-height: 1.15; letter-spacing: -0.02em; margin: 22px auto 10px; max-width: 18ch; text-wrap: balance; }
+  .sub { color: rgba(255,255,255,.82); max-width: 46ch; margin: 0 auto; font-size: 1.02rem; text-wrap: balance; }
+  .player { max-width: 960px; margin: -92px auto 0; padding: 0 16px; }
+  .frame { border-radius: 18px; overflow: hidden; background: #000; box-shadow: 0 24px 60px rgba(22,21,46,.35); aspect-ratio: 16 / 9; }
+  video { width: 100%; height: 100%; display: block; background: #000; }
+  .note { text-align: center; color: var(--muted); font-size: .86rem; margin-top: 10px; }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 36px 16px 64px; }
+  .three { display: grid; gap: 12px; }
+  @media (min-width: 720px) { .three { grid-template-columns: repeat(3, 1fr); } }
+  .pt { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; }
+  .pt b { display: block; font-size: 1.02rem; margin-bottom: 4px; }
+  .pt span { color: var(--muted); font-size: .92rem; }
+  .k { color: var(--teal); font-weight: 800; font-size: .74rem; letter-spacing: .12em; text-transform: uppercase; margin-bottom: 6px; display: block; }
+  .ctas { display: grid; gap: 12px; margin-top: 28px; }
+  @media (min-width: 560px) { .ctas { grid-template-columns: 1fr 1fr; } }
+  .btn { display: flex; align-items: center; justify-content: center; min-height: 54px; padding: 0 20px; border-radius: 14px; font-weight: 800; font-size: 1.02rem; text-decoration: none; text-align: center; }
+  .btn.primary { background: var(--red); color: #fff; box-shadow: 0 10px 26px rgba(227,38,47,.3); }
+  .btn.second { background: var(--card); color: var(--ink); border: 1.5px solid var(--line); }
+  .btn:focus-visible { outline: 3px solid var(--teal); outline-offset: 3px; }
+  .demo { margin-top: 14px; font-size: .9rem; color: var(--muted); text-align: center; }
+  .demo code { font-family: ui-monospace, "SF Mono", Menlo, monospace; background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; color: var(--ink); }
+  .pilot { margin-top: 30px; background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 20px 20px 18px; }
+  .pilot h2 { font-size: 1.15rem; margin-bottom: 6px; }
+  .pilot p { color: var(--muted); font-size: .94rem; }
+  .pilot .alt { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: .92rem; }
+  .pilot a { color: var(--ink); font-weight: 700; }
+  footer { text-align: center; color: var(--muted); font-size: .8rem; padding: 0 16px calc(28px + env(safe-area-inset-bottom)); }
+  footer a { color: inherit; }
+</style>
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="../">
+    <svg viewBox="0 0 32 32" aria-hidden="true"><rect x="2" y="2" width="28" height="28" rx="8" fill="none" stroke="#fff" stroke-width="2.4"/><path d="M9 16.5l4.6 4.6L23.5 11" fill="none" stroke="#14B8A6" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    SDX Inspect
+  </a>
+  <h1>Find it. Fix it. Prove it.</h1>
+  <p class="sub">40 seconds on how a food-safety problem goes from the walk to the crew to a photo that proves it was fixed.</p>
+</header>
+
+<div class="player">
+  <div class="frame">
+    <video controls playsinline preload="metadata" poster="../video/sdx-explainer40.jpg">
+      <source src="../video/sdx-explainer40.mp4" type="video/mp4">
+      <a href="../video/sdx-explainer40.mp4">Watch the video</a>
+    </video>
+  </div>
+  <p class="note">No sound needed — every step is written on screen.</p>
+</div>
+
+<main class="wrap">
+  <div class="three">
+    <div class="pt"><span class="k">Walk</span><b>One checklist on the phone</b><span>Temperatures, problems and a BEFORE photo — saved to the cloud as you go.</span></div>
+    <div class="pt"><span class="k">Fix</span><b>The crew gets the job</b><span>Maintenance and cleaning see it on their phone and send the AFTER photo.</span></div>
+    <div class="pt"><span class="k">Prove</span><b>Before and after, together</b><span>Every fix with its photos and time, in the app and in Excel.</span></div>
+  </div>
+
+  <div class="ctas">
+    <a class="btn primary" href="../../?v=riverside-demo">Try the live demo</a>
+    <a class="btn second" href="mailto:joxelpanita@gmail.com?subject=SDX%20Inspect%20%E2%80%94%20free%2030-day%20pilot">Start a free 30-day pilot</a>
+  </div>
+  <p class="demo">In the demo, sign in with badge <code>448800</code>. It uses made-up stands and people.</p>
+
+  <section class="pilot" aria-labelledby="pilot-h">
+    <h2 id="pilot-h">The free 30-day pilot</h2>
+    <p>Your team uses SDX Inspect at your venue for 30 days. You set up the stands and print the QR posters yourself in the app — it walks you through it. Nothing to pay to start — a one-page pilot letter says what we will measure together.</p>
+    <div class="alt"><a href="mailto:joxelpanita@gmail.com?subject=SDX%20Inspect%20%E2%80%94%20free%2030-day%20pilot">Email us</a><a href="https://www.instagram.com/sdxinspection/">DM @sdxinspection</a><a href="../">See every feature</a><a href="../learn/">Free food-safety lessons</a></div>
+  </section>
+</main>
+
+<footer>
+  <p>SDX Inspect · <a href="../../privacy.html">Privacy</a> · <a href="../../terms.html">Terms</a> · <a href="../../support.html">Support</a></p>
+</footer>
+</body>
+</html>
