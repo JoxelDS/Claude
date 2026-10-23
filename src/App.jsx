@@ -5488,6 +5488,7 @@ function floorForStand(unit, name, saved) {
 
 try { window.__sdxBuildActionItems = (a) => buildActionItems(a); } catch {}
 try { window.__sdxComputeFollowups = (h, vs, cl, o) => computeFollowups(h, vs, cl || {}, o || {}); } catch {}
+try { window.__sdxVenueDayStart = t => venueDayStartMs("America/New_York", t); } catch {} // v573 harness: Miami midnight of a given instant
 function buildActionItems({ inspection, rawNotes, foodTemps: ftArg, foodTempNames: fnArg, foodTempCorrections: fcArg, foodTempSubmitted: fsArg }) {
   const items = [];
   const { mapByPath } = buildPhotoIndex(inspection);
@@ -11511,6 +11512,44 @@ function fuScan(history) {
   if (_fuGen === g0) _fuScanCache.set(history, { gen: g0, scan }); // a scan that saw a reset half-way is not kept
   return scan;
 }
+// v573: the copy of the venue settings kept on this phone is written at most every 800 ms, and at once when the page hides.
+// Writing a 680 KB settings JSON inside every Resolve took ~130 ms on the tap path (the cloud write is never delayed).
+let _vsCopyTimer = 0, _vsCopyLatest = null;
+function flushVenueSettingsCopy() {
+  if (_vsCopyTimer) { clearTimeout(_vsCopyTimer); _vsCopyTimer = 0; }
+  if (!_vsCopyLatest) return;
+  const v = _vsCopyLatest; _vsCopyLatest = null;
+  try { localStorage.setItem(VENUE_SETTINGS_KEY, JSON.stringify(v)); } catch {}
+}
+function persistVenueSettingsSoon(next) {
+  _vsCopyLatest = next;
+  if (!_vsCopyTimer) _vsCopyTimer = setTimeout(flushVenueSettingsCopy, 800);
+}
+try {
+  window.addEventListener("pagehide", flushVenueSettingsCopy);
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") flushVenueSettingsCopy(); });
+} catch {}
+// v573: midnight at the start of today in the venue's zone (Miami = America/New_York), as epoch ms.
+function venueDayStartMs(zone = "America/New_York", now = Date.now()) {
+  const pick = (parts, t) => Number(parts.find(p => p.type === t).value);
+  const day = new Intl.DateTimeFormat("en-US", { timeZone: zone, year: "numeric", month: "numeric", day: "numeric" }).formatToParts(new Date(now));
+  const guess = Date.UTC(pick(day, "year"), pick(day, "month") - 1, pick(day, "day"));
+  const wall = new Intl.DateTimeFormat("en-US", { timeZone: zone, hourCycle: "h23", year: "numeric", month: "numeric", day: "numeric", hour: "numeric", minute: "numeric", second: "numeric" }).formatToParts(new Date(guess));
+  const wallAsUtc = Date.UTC(pick(wall, "year"), pick(wall, "month") - 1, pick(wall, "day"), pick(wall, "hour"), pick(wall, "minute"), pick(wall, "second"));
+  return guess - (wallAsUtc - guess);
+}
+// v573: the OPEN follow-up list starts at venueSettings.followupSince. Older reports stay in History; only open work ignores them.
+// opts.allHistory = the ✅ Fixed list, the timeline and the history exports (they keep every record). The filter is cached per array.
+const _fuFromStartCache = new WeakMap();
+function fuFromStart(history, venueSettings, opts = {}) {
+  const since = Number(venueSettings?.followupSince) || 0;
+  if (!since || opts.allHistory || !Array.isArray(history)) return history;
+  const hit = _fuFromStartCache.get(history);
+  if (hit && hit.since === since) return hit.list;
+  const list = history.filter(r => { const t = Date.parse(r?.savedAt || ""); return !Number.isFinite(t) || t >= since; });
+  _fuFromStartCache.set(history, { since, list });
+  return list;
+}
 function computeFollowups(history, venueSettings, clearedLocal = {}, opts = {}) {
   try { window.__sdxFuRuns = (window.__sdxFuRuns || 0) + 1; } catch {} // v567: how often the follow-up engine runs (speed harness)
   const recheckDays = Number(venueSettings?.recheckDays) || 7;
@@ -11519,7 +11558,7 @@ function computeFollowups(history, venueSettings, clearedLocal = {}, opts = {}) 
   const clearedRaw = { ...(venueSettings?.followupCleared || {}), ...clearedLocal };
   const statusRawF = venueSettings?.followupStatus || {};
   const cleared = new Proxy(clearedRaw, { get: (t, k) => typeof k === "string" ? fuGet(t, k, statusRawF) : t[k] }); // v564: old name-only keys still count
-  const { latestInspByLoc, visitsByLoc, catLastSeen, caPhotos } = fuScan(history);
+  const { latestInspByLoc, visitsByLoc, catLastSeen, caPhotos } = fuScan(fuFromStart(history, venueSettings, opts));
   const now = Date.now();
   const mergePhotos = rows => { const seen = new Set(); const out = []; for (const r of rows) for (const p of (r.photos || [])) { const id = p.id || p.thumbUrl; if (!seen.has(id)) { seen.add(id); out.push(p); } } return out; }; // v557: no cap
   const followups = [];
@@ -12193,7 +12232,7 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
 
   const vsT = Object.keys(local.types).length ? { ...vs, followupType: { ...(vs.followupType || {}), ...local.types } } : vs;
   const [fuIdent, fuIdentSeen] = useFuIdentTick(); // v564: recompute when more stands / units are known
-  const all = useMemo(() => { try { const r = computeFollowups(history, vsT, clearedLocal).followups; fuIdentSeen.current = _fuGen; return r; } catch { return []; } }, [history, vs.followupCleared, vs.followupStatus, vs.followupType, vs.followupPhotos, vs.followupSharedNames, vs.recheckDays, clearedLocal, local.types, fuIdent]); // eslint-disable-line react-hooks/exhaustive-deps
+  const all = useMemo(() => { try { const r = computeFollowups(history, vsT, clearedLocal).followups; fuIdentSeen.current = _fuGen; return r; } catch { return []; } }, [history, vs.followupCleared, vs.followupStatus, vs.followupType, vs.followupPhotos, vs.followupSharedNames, vs.recheckDays, vs.followupSince, clearedLocal, local.types, fuIdent]); // eslint-disable-line react-hooks/exhaustive-deps
   function moveTo(f, itype) {
     const entry = { itype, by: me, ts: Date.now() };
     const patch = {}; fuMembers(f).forEach(m => { patch[m.key] = { ...entry, ...fuStamp(m) }; }); // v502: a merged card moves all of its issues · v564: stamped with its unit
@@ -12861,7 +12900,7 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
     fuIdentSeen.current = _fuGen;
 
     return { recurring, locationRecurring, tempComplianceRate, tempChecks, tempFails, totalInspections: history.length, worstLocations, followups, followupGroups, followupCatGroups, recheckDays };
-  }, [history, venueSettingsRaw?.followupCleared, venueSettingsRaw?.followupStatus, venueSettingsRaw?.followupType, venueSettingsRaw?.followupRowType, venueSettingsRaw?.followupPhotos, venueSettingsRaw?.followupSharedNames, venueSettingsRaw?.recheckDays, clearedLocal, typeLocal, rowTypeLocal, fuIdent]); // eslint-disable-line react-hooks/exhaustive-deps -- v568: only what the cards are made of (a comment / announcement write no longer rebuilds them)
+  }, [history, venueSettingsRaw?.followupCleared, venueSettingsRaw?.followupStatus, venueSettingsRaw?.followupType, venueSettingsRaw?.followupRowType, venueSettingsRaw?.followupPhotos, venueSettingsRaw?.followupSharedNames, venueSettingsRaw?.recheckDays, venueSettingsRaw?.followupSince, clearedLocal, typeLocal, rowTypeLocal, fuIdent]); // eslint-disable-line react-hooks/exhaustive-deps -- v568: only what the cards are made of (a comment / announcement write no longer rebuilds them)
   // v564: every card key (a shared name's `NAME #UNIT::cat`, its members, its rows) also finds what was stored under the
   // old name-only key — status, comments, photos, cleared, type — so splitting CHEESEBURGER BABY 114A / 233 loses nothing
   const venueSettings = useMemo(() => fuWithLegacy(venueSettingsRaw, fuKeysOf([...(analysis?.followups || []), ...(analysis?.followupGroups || []).flatMap(g => g.items || [])])), [venueSettingsRaw, analysis]);
@@ -13154,6 +13193,9 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
 
   const [fuOpen, setFuOpen] = useState(() => FU_VIEW.open ?? {});
   const [fuShowN, setFuShowN] = useState(() => (FU_VIEW.showN >= 40 ? FU_VIEW.showN : 40)); // v568: a budget of cards + group lines
+  const [fuStartAsk, setFuStartAsk] = useState(false); // v573: the "start from today" confirm sheet
+  const [fuStartUndo, setFuStartUndo] = useState(null); // v573: { prev } — Undo puts the previous start back
+  const [fixedDaysN, setFixedDaysN] = useState(7); // v573: ✅ Fixed shows the newest days first; "Show older days" adds 7 more
   const fuShowMore = useCallback(() => setFuShowN(n => n + 40), []);
   // v553: while someone works the list, a ✓ Resolve must not re-sort the stands or fold a group shut under the
   // finger (groups sort by "has overdue" + due date + size, and open by default only while overdue). The order and
@@ -13827,7 +13869,7 @@ ${sections}
     // v558 review: each fixed card's older pictures stop at the clear that was in force before its fix (prevClear) —
     // with no clears in this run, an earlier, already-fixed episode's BEFORE photos leaked into the list and the exports
     const photoFloor = {}; for (const [k2, st2] of Object.entries(stMapF)) { const pc = Number(st2?.prevClear) || 0; if (pc) photoFloor[k2] = pc; }
-    const all = computeFollowups(history, { ...(venueSettings || {}), followupCleared: {} }, {}, { photoFloor }).followups || [];
+    const all = computeFollowups(history, { ...(venueSettings || {}), followupCleared: {} }, {}, { photoFloor, allHistory: true }).followups || []; // v573: ✅ Fixed keeps every record, also before the start day
     // v564: a fix stored under the old name-only key still belongs to the stand's card — read from the RAW maps (the
     // panel's settings view already copied old values onto every card key, so it cannot tell where a value came from),
     // and an unstamped old entry counts for ONE same-name card only (fuLegacyOwner): one row, one clean, one bill
@@ -13899,13 +13941,14 @@ ${sections}
   // v453 — the ✅ Fixed list, grouped by the day the crew closed it.
   const fixedDays = (() => {
     const m = {};
-    const base = fixedList.slice(0, 80);
+    const base = fixedList.slice(); // v573: every day stays reachable — the panel pages by day ("Show older days")
     if (fuFixedTarget && !base.some(f => f.key === fuFixedTarget)) { const t = fixedList.find(f => f.key === fuFixedTarget) || fixedList.find(f => fuBaseKey(f.key) === fuBaseKey(fuFixedTarget)); if (t) base.push(t); }
     base.forEach(f => {
       const d = new Date(f.fixedTs); d.setHours(0, 0, 0, 0);
       const k = d.toISOString().slice(0, 10);
-      (m[k] = m[k] || { key: k, rows: [], people: new Set() });
+      (m[k] = m[k] || { key: k, rows: [], people: new Set(), mins: 0 });
       m[k].rows.push(f);
+      m[k].mins += Number(f.fixedMins) || 0;
       if (f.fixedBy) m[k].people.add(f.fixedBy);
     });
     return Object.values(m).sort((a2, b2) => b2.key.localeCompare(a2.key));
@@ -14286,6 +14329,42 @@ ${sections}
               )}
               {qpFlash && <div data-testid="qp-flash" style={{ fontSize: "0.8rem", fontWeight: 700, color: qpFlash.startsWith("⚠") ? "#dc2626" : "#16a34a", marginTop: 6 }}>{qpFlash}</div>}
             </div>
+            {/* v573: the open list starts from today (Miami time). Admins set it; Undo puts the previous start back. Older reports stay in History. */}
+            {(() => {
+              const since = Number(venueSettingsRaw?.followupSince) || 0;
+              const fuAdmin = currentUser?.role === "admin" || currentUser?.role === "global_admin";
+              if (!since && !fuAdmin) return null;
+              const startDay = venueDayStartMs();
+              const todayN = (history || []).filter(r => { const t = Date.parse(r?.savedAt || ""); return Number.isFinite(t) && t >= startDay; }).length;
+              return (
+                <div className="fuStartBar" data-testid="fu-start-bar">
+                  <div className="fuStartText">
+                    {since
+                      ? <>📅 Open follow-ups count from <b>{new Date(since).toLocaleString([], { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</b> (Miami time). Older reports stay in History.</>
+                      : <>📅 Open follow-ups count from the first report in History. Start from today to see only what is found from now on.</>}
+                  </div>
+                  {fuAdmin && !fuStartAsk && (
+                    <button type="button" className="fuBtn fuBtnPrimary" data-testid="fu-start-ask" onClick={() => setFuStartAsk(true)}>{since ? "Change start" : "🗓 Start follow-ups from today"}</button>
+                  )}
+                  {fuAdmin && fuStartAsk && (
+                    <div className="fuStartAsk" data-testid="fu-start-confirm">
+                      <div>Start the open list from <b>today, {new Date(startDay).toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" })}, 00:00 Miami time</b>. {todayN} report{todayN !== 1 ? "s" : ""} from today count so far. Open problems from before today will not show here. They stay in History and can be reported again.</div>
+                      <div className="fuStartBtns">
+                        <button type="button" className="fuBtn fuBtnPrimary" data-testid="fu-start-yes" onClick={() => { setFuStartUndo({ prev: since }); saveVenueSettings?.({ followupSince: startDay }); setFuStartAsk(false); }}>Start from today</button>
+                        <button type="button" className="fuBtn" onClick={() => setFuStartAsk(false)}>Cancel</button>
+                      </div>
+                    </div>
+                  )}
+                  {fuStartUndo && (
+                    <div className="fuStartUndoStrip" data-testid="fu-start-undo">
+                      <span>✓ Start set to today</span>
+                      <button type="button" className="fuBtn" data-testid="fu-start-undo-btn" onClick={() => { saveVenueSettings?.({ followupSince: fuStartUndo.prev || 0 }); setFuStartUndo(null); }}>↩ Undo</button>
+                      <button type="button" className="fuEntryX" aria-label="Close" onClick={() => setFuStartUndo(null)}>✕</button>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
             {/* v511: one labelled toolbar — Status (counts) / Crew (tap to filter) / Filter / Group by */}
             <div className="fuTools" data-testid="fu-tools">
               <div className="fuToolsRow fuToolsStatus"><span className="fuToolsLbl">Status</span><div className="fuToolsBody">
@@ -14507,9 +14586,9 @@ ${sections}
                 </div>
                 {fixedList.length === 0 ? (
                   <div className="fuFixedEmpty">Nothing marked fixed yet. Crews tap ✅ Fixed on their board and it lands here right away.</div>
-                ) : fixedDays.map(day => (
-                  <div key={day.key} className="fuFixedDayWrap">
-                    <div className="fuFixedDay">📅 {dayLabel(day.key)}<span className="fuFixedDayN">{day.rows.length} fixed{day.people.size ? ` · ${[...day.people].join(", ")}` : ""}</span></div>
+                ) : <>{fixedDays.slice(0, fixedDaysN).map(day => (
+                  <div key={day.key} className="fuFixedDayWrap" data-testid="fu-fixed-day">
+                    <div className="fuFixedDay">📅 {dayLabel(day.key)}<span className="fuFixedDayN">{day.rows.length} fixed{day.people.size ? ` · ${[...day.people].join(", ")}` : ""}{day.mins ? ` · ${day.mins} min on the job` : ""}</span></div>
                     {day.rows.map(f => {
                   const when = new Date(f.fixedTs);
                   const mins = Math.round((Date.now() - f.fixedTs) / 60000);
@@ -14536,6 +14615,9 @@ ${sections}
                     })}
                   </div>
                 ))}
+                {fixedDays.length > fixedDaysN && (
+                  <button type="button" className="fuBtn fuDaysMore" data-testid="fu-fixed-more-days" onClick={() => setFixedDaysN(n => n + 7)}>Show older days ({fixedDays.length - fixedDaysN} more)</button>
+                )}</>}
               </div>
             )}
             {fuEntry && (
@@ -15206,7 +15288,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
     setHistoryTab("reports"); setExpandedId(initialFocusId);
     setTimeout(() => { try { skipScrollAnchor(1200); document.querySelector(`[data-rec="${CSS.escape(initialFocusId)}"]`)?.scrollIntoView({ behavior: "smooth", block: "start" }); } catch {} }, 250);
   }, [initialFocusId, history]); // eslint-disable-line react-hooks/exhaustive-deps
-  const fuTabOverdue = useMemo(() => { try { return mergeFollowupsByUnit(computeFollowups(history, venueSettings).followups).filter(f => f.overdue && !f.likelyResolved).length; } catch { return 0; } }, [history, venueSettings?.followupCleared, venueSettings?.followupStatus, venueSettings?.recheckDays]);
+  const fuTabOverdue = useMemo(() => { try { return mergeFollowupsByUnit(computeFollowups(history, venueSettings).followups).filter(f => f.overdue && !f.likelyResolved).length; } catch { return 0; } }, [history, venueSettings?.followupCleared, venueSettings?.followupStatus, venueSettings?.recheckDays, venueSettings?.followupSince]);
   const [selectMode, setSelectMode] = useState(false);
   useEffect(() => { if (historyTab === "analytics") setSelectMode(false); }, [historyTab]); // v511: report Select only on the Reports tab
   const [selectedIds, setSelectedIds] = useState(new Set());
@@ -16132,7 +16214,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
         } catch {}
       }
       try {
-        const all = computeFollowups(full, { ...(venueSettings || {}), followupCleared: {} }).followups || [];
+        const all = computeFollowups(full, { ...(venueSettings || {}), followupCleared: {} }, {}, { allHistory: true }).followups || []; // v573: exports keep every record
         all.forEach(f => { const base = fuBaseKey(f.key); const g = fuByBase.get(base) || []; g.push(f); fuByBase.set(base, g); });
         for (const r of full) {
           if (!r || r.discarded || !Array.isArray(r.actionItems)) continue;
@@ -17533,7 +17615,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
               // v442: every fix lands on the timeline too — who closed it, when,
               // how long it took and whose mess it was.
               try {
-                const fuAll = computeFollowups(src, { ...(venueSettings || {}), followupCleared: {} }, {}).followups || [];
+                const fuAll = computeFollowups(src, { ...(venueSettings || {}), followupCleared: {} }, {}, { allHistory: true }).followups || []; // v573: the timeline keeps every fix
                 const byKey = {}; const byLeg = new Map();
                 fuAll.forEach(f => { byKey[f.key] = f; const l = fuLegacyKey(f.key); if (l !== f.key) { let g = byLeg.get(l); if (!g) byLeg.set(l, g = []); g.push(f); } });
                 // v564 review: an entry under an old name-only key belongs to one same-name card — the one with its unit
@@ -33993,7 +34075,7 @@ export default function App() {
       // v563 review: an invite link change sends only its own key (the cloud write deep-merges it) — keep the others here
       if (updates && updates.inviteTokens && typeof updates.inviteTokens === "object") next.inviteTokens = { ...(prev.inviteTokens || {}), ...updates.inviteTokens };
       _vs = next;
-      try { localStorage.setItem(VENUE_SETTINGS_KEY, JSON.stringify(next)); } catch {}
+      persistVenueSettingsSoon(next);
       return next;
     });
     if (FIREBASE_ON) {
@@ -34012,7 +34094,7 @@ export default function App() {
     setVenueSettings(prev => {
       const next = { ...prev, [field]: { ...(prev[field] || {}), ...patch } };
       _vs = next;
-      try { localStorage.setItem(VENUE_SETTINGS_KEY, JSON.stringify(next)); } catch {}
+      persistVenueSettingsSoon(next);
       return next;
     });
     if (FIREBASE_ON) {
@@ -34122,7 +34204,7 @@ export default function App() {
       const list = mergeFollowupsByUnit(computeFollowups(readWarmHistory(), venueSettings).followups); // v568 review: the same cards the panel shows
       return { overdue: list.filter(f => f.overdue).length, open: list.length };
     } catch { return { overdue: 0, open: 0 }; }
-  }, [currentUser, venueSettings?.followupCleared, venueSettings?.followupStatus, venueSettings?.recheckDays, fuHistoryTick]);
+  }, [currentUser, venueSettings?.followupCleared, venueSettings?.followupStatus, venueSettings?.recheckDays, venueSettings?.followupSince, fuHistoryTick]);
   const fuOverdueCount = fuCounts.overdue, fuOpenCount = fuCounts.open;
 
   // Equipment tab badge: units whose latest read (local caches) is over limit
@@ -35048,7 +35130,7 @@ export default function App() {
         .filter(f => { if (!(unitN && siteU)) return unitN ? normUnit(f.unit) === unitN : (f.loc || "").toUpperCase() === siteU; const mine = fuStandKey(siteName, siteNumber), theirs = fuStandKey(f.loc, f.unit); return theirs === mine || (theirs.split("|")[0] === mine.split("|")[0] && fuUnclaimedKey(theirs)); })
         .filter(f => (fuGet(venueSettings?.followupStatus, f.key)?.status) !== "resolved");
     } catch { return []; } finally { fuIdentSeenF.current = _fuGen; }
-  }, [siteNumber, siteName, venueSettings?.followupCleared, venueSettings?.followupStatus, venueSettings?.followupSharedNames, venueSettings?.recheckDays, fuHistoryTick, fuIdentF]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [siteNumber, siteName, venueSettings?.followupCleared, venueSettings?.followupStatus, venueSettings?.followupSharedNames, venueSettings?.followupSince, venueSettings?.recheckDays, fuHistoryTick, fuIdentF]); // eslint-disable-line react-hooks/exhaustive-deps
   // v564 review: an answer stored under another form of a card's key (a draft from before v564, or a unit worked out again)
   // moves onto the card's key, so it shows, is saved with the report and reaches Follow-ups
   useEffect(() => {
