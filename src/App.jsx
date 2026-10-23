@@ -1357,9 +1357,10 @@ function readWarmHistory() {
 // the signature the cloud acked, as the form computes it (contentSigOf) — module level so the draft migration can use it
 const SIG_KEYS = ["noteType", "useCase", "context", "inspection", "rawNotes", "inspectionType", "inspectionDate", "inspectorName", "participantName",
   "siteName", "siteNumber", "restaurantLicense", "supervisorName", "sitePhone", "locationType", "floor", "eventName",
-  "foodTemps", "foodTempNames", "foodTempCorrections", "foodTempSubmitted", "foodTempTimes", "suppliesNeeded", "notesPhotos", "correctives", "savedReportId"];
+  "foodTemps", "foodTempNames", "foodTempCorrections", "foodTempSubmitted", "foodTempTimes", "suppliesNeeded", "foodWaste", "foodWasteNone", "notesPhotos", "correctives", "savedReportId"];
 const CLOUD_SIG_V = 2; // v559: the signature leaves pictures out (text-only, like the phone copy)
-const sigPick = snap => { const o = {}; for (const k of SIG_KEYS) o[k] = snap?.[k] ?? null; return o; };
+// v575: an empty waste log signs as nothing, so every draft saved before the waste card keeps its signature
+const sigPick = snap => { const o = {}; for (const k of SIG_KEYS) o[k] = snap?.[k] ?? null; if (Array.isArray(o.foodWaste) && !o.foodWaste.length) o.foodWaste = null; if (!o.foodWasteNone) o.foodWasteNone = null; return o; };
 try { window.__sdxSigOf = (d, legacy) => hashSig(JSON.stringify((legacy ? legacySlimDraft : slimLocalDraft)(sigPick(d)))); } catch {} // harness
 // the pre-v559 slimming rule (kept small thumbs) — only to recognise drafts the cloud acked before the update
 function legacySlimDraft(v) {
@@ -17544,7 +17545,11 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
         {historyTab === "analytics" && history.length === 0 && (
           <div className="card fuEmptyCard" data-testid="fu-empty">
             <div className="cardTitle">🔁 Follow-ups</div>
-            <p>{historyLoaded ? "No reports yet. Every problem flagged in a report — and every problem a stand reports — shows up here until it is fixed." : "Loading your reports…"}</p>
+            {historyLoaded ? (
+              <p>No reports yet. Every problem flagged in a report — and every problem a stand reports — shows up here until it is fixed.</p>
+            ) : (
+              <div className="fuEmptyLoad" data-testid="fu-loading"><span className="fuEmptySpin" aria-hidden="true" /><p>Loading your reports…</p></div>
+            )}
           </div>
         )}
         {historyTab === "analytics" && history.length >= 1 && (
@@ -17844,6 +17849,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                   </>
                 ) : !historyLoaded ? (
                   <>
+                    <div className="fuEmptySpin" aria-hidden="true" style={{ margin: "0 auto 12px" }} />
                     <div className="emptyTitle">Loading your reports…</div>
                     <div className="emptySub">One moment.</div>
                   </>
@@ -30120,6 +30126,10 @@ function wasteAmountText(byUnit) {
   return keys.filter(k => byUnit?.[k]).map(k => `${wasteNum(byUnit[k])} ${wasteUnitLabel(k)}`).join(" · ");
 }
 // Every waste line in these records (one per item), plus a { none: true } line for a "No waste today"
+// v575: a waste row as the inspection form holds it — from a saved record (qty a number, no id) or from a draft
+function wasteRowFromRecord(r, i = 0) {
+  return { id: r.id || `fw${i}_${Math.random().toString(36).slice(2, 6)}`, item: String(r.item || ""), qty: r.qty == null || r.qty === 0 || r.qty === "" ? "" : String(r.qty), unit: r.unit || "", reason: r.reason || "" };
+}
 function wasteRowsOf(history) {
   const out = [];
   for (const r of (history || [])) {
@@ -35013,6 +35023,11 @@ export default function App() {
       });
     }
   }
+  const [foodWaste, setFoodWaste] = useState([]);  // v575: [{id, item, qty, unit, reason}] — food thrown away on this stand
+  const [foodWasteNone, setFoodWasteNone] = useState(false); // v575: "Nothing thrown away" tapped
+  const foodWasteRowsCount = foodWaste.filter(r => String(r.item || "").trim()).length;
+  function addFoodWasteRow() { setFoodWasteNone(false); setFoodWaste(prev => [...prev, { id: `fw${Date.now()}${Math.random().toString(36).slice(2, 5)}`, item: "", qty: "", unit: "", reason: "" }]); }
+  function patchFoodWaste(id, patch) { setFoodWaste(prev => prev.map(r => r.id === id ? { ...r, ...patch } : r)); }
   const [suppliesNeeded, setSuppliesNeeded] = useState([]);  // [{id, item, qty, urgent, fromChecklist?}]
   // v489: the Ecolab products checklist writes the inventory — NO adds the product, YES removes only what it added
   useEffect(() => {
@@ -35667,7 +35682,7 @@ export default function App() {
       siteName, siteNumber, restaurantLicense,
       supervisorName, sitePhone, locationType, floor, eventName,
       foodTemps, foodTempNames, foodTempCorrections, foodTempSubmitted, foodTempTimes,
-      suppliesNeeded, notesPhotos, correctives, output, onSiteConfirmed, guideStep,
+      suppliesNeeded, foodWaste, foodWasteNone, notesPhotos, correctives, output, onSiteConfirmed, guideStep,
       reportStartedAt: reportStartedAt.current, inspectionStartedAt: inspectionStartedAt.current,
       isEditMode: isEditModeRef.current,
       editBase: editBaseRef.current && editBaseRef.current.id === savedReportId ? editBaseForDraft(editBaseRef.current) : null,
@@ -35740,7 +35755,7 @@ export default function App() {
       inspectionDate, inspectorName, participantName, siteName, siteNumber,
       restaurantLicense, supervisorName, sitePhone, locationType, floor,
       eventName, foodTemps, foodTempNames, foodTempCorrections, foodTempSubmitted, foodTempTimes,
-      suppliesNeeded, notesPhotos, correctives, output, onSiteConfirmed, guideStep, savedReportId, saved]);
+      suppliesNeeded, foodWaste, foodWasteNone, notesPhotos, correctives, output, onSiteConfirmed, guideStep, savedReportId, saved]);
   // Flush = write the local draft from the latest snapshot and push the cloud copy now.
   flushDraftRef.current = () => {
     const snap = draftSnapRef.current; if (!snap || !dirtyRef.current) return false;
@@ -35818,13 +35833,14 @@ export default function App() {
     if (String(snap?.rawNotes || "").trim()) n++;
     n += (snap?.notesPhotos || []).length;
     n += (snap?.suppliesNeeded || []).filter(x => String(x?.item || "").trim()).length;
+    n += (snap?.foodWaste || []).filter(x => String(x?.item || "").trim()).length; // v575
     for (const a of Object.values(snap?.foodTemps || {})) for (const v of a || []) if (String(v || "").trim()) n++;
     for (const c of Object.values(snap?.correctives || {})) if (c && ((c.action || "").trim() || (c.photos || []).length)) n++;
     return n;
   }
   try { window.__sdxWorkCount = () => reportWorkCount(buildDraftSnapshot()); } catch {}
   function formHasContent() {
-    return !!(siteName.trim() || siteNumber.trim() || rawNotes.trim() || suppliesNeeded.length || notesPhotos.length || output.trim()
+    return !!(siteName.trim() || siteNumber.trim() || rawNotes.trim() || suppliesNeeded.length || foodWasteRowsCount || notesPhotos.length || output.trim()
       || Object.values(foodTemps || {}).some(a => (a || []).some(v => String(v || "").trim()))
       || JSON.stringify(inspection) !== (defaultInspJsonRef.current || (defaultInspJsonRef.current = JSON.stringify(buildDefaultInspection()))));
   }
@@ -36091,7 +36107,7 @@ export default function App() {
       inspectionDate, inspectorName, participantName, siteName, siteNumber,
       restaurantLicense, supervisorName, sitePhone, locationType, floor,
       eventName, foodTemps, foodTempNames, foodTempCorrections, foodTempSubmitted, foodTempTimes,
-      suppliesNeeded, notesPhotos, correctives, savedReportId, locked]);
+      suppliesNeeded, foodWaste, foodWasteNone, notesPhotos, correctives, savedReportId, locked]);
   // A new report starts with a clean status line, and belongs to the venue open now.
   if (reportVenueRef.current.id !== savedReportId) reportVenueRef.current = { id: savedReportId, venue: activeVenueId };
   useEffect(() => { setCloud(c => (confirmedSigRef.current[savedReportId] ? c : { state: "idle", at: null, err: "", missing: [] })); }, [savedReportId]);
@@ -36542,6 +36558,8 @@ export default function App() {
     setInspection(buildDefaultInspection());
     setNotesPhotos([]);
     setSuppliesNeeded([]);
+    setFoodWaste([]);
+    setFoodWasteNone(false);
     setRawNotes("");
     setOutput("");
     setError("");
@@ -36636,6 +36654,8 @@ export default function App() {
     if (Array.isArray(snapshot.notesPhotos)) setNotesPhotos(snapshot.notesPhotos); // v495 draft
     else if (snapshot.inspection !== undefined) setNotesPhotos(Array.isArray(snapshot.inspection?._notesPhotos) ? snapshot.inspection?._notesPhotos : []);
     if (snapshot.suppliesNeeded !== undefined) setSuppliesNeeded(Array.isArray(snapshot.suppliesNeeded) ? snapshot.suppliesNeeded : []);
+    if (Array.isArray(snapshot.foodWaste)) setFoodWaste(snapshot.foodWaste.map(wasteRowFromRecord)); // v575
+    if (snapshot.foodWasteNone !== undefined) setFoodWasteNone(!!snapshot.foodWasteNone);
     if (snapshot.rawNotes !== undefined) setRawNotes(snapshot.rawNotes || "");
     if (snapshot.output !== undefined) setOutput(snapshot.output || "");
     // v495: the rest of the form state a draft carries
@@ -36666,7 +36686,7 @@ export default function App() {
     try {
       // v553: start from a blank form — a quick report / stand log carries no notes, food temps, supplies…,
       // and the previous report's values used to stay in those fields and be saved into it
-      restoreFormState({ noteType: "inspection", inspectionType: "Regular Inspection", inspectionDate: "", inspectorName: "", participantName: "", siteName: "", siteNumber: "", restaurantLicense: "", supervisorName: "", sitePhone: "", locationType: "Concession", floor: "Floor 1", eventName: "", context: null, inspection: null, foodTemps: {}, foodTempNames: {}, foodTempCorrections: {}, foodTempSubmitted: {}, foodTempTimes: {}, suppliesNeeded: [], rawNotes: "", correctives: {}, ...rec });
+      restoreFormState({ noteType: "inspection", inspectionType: "Regular Inspection", inspectionDate: "", inspectorName: "", participantName: "", siteName: "", siteNumber: "", restaurantLicense: "", supervisorName: "", sitePhone: "", locationType: "Concession", floor: "Floor 1", eventName: "", context: null, inspection: null, foodTemps: {}, foodTempNames: {}, foodTempCorrections: {}, foodTempSubmitted: {}, foodTempTimes: {}, suppliesNeeded: [], foodWaste: [], foodWasteNone: false, rawNotes: "", correctives: {}, ...rec });
       // Generate output immediately from the record data so it's visible right away
       // (before React re-renders, state from restoreFormState isn't readable yet —
       //  so we generate directly from rec fields rather than waiting for the useEffect)
@@ -36918,6 +36938,9 @@ export default function App() {
       // Flag: license explicitly marked as not on file
       licenseMissing: !isLicenseExemptType(locationType) && restaurantLicense?.trim() === "NO LICENSE",
       suppliesNeeded: suppliesNeeded.filter(s => s.item.trim()),
+      // v575: food thrown away — the same shape the stand portal writes (unit = the unit of measure)
+      foodWaste: foodWaste.filter(r => String(r.item || "").trim()).map(r => ({ item: wasteItemKey(r.item), qty: wasteNum(r.qty), unit: r.unit || "", reason: r.reason || "" })),
+      foodWasteNone: !foodWasteRowsCount && foodWasteNone,
       location: siteName || context?.kitchen || "Kitchen",
       context: { ...context },
       temps: { ...inspection.temps },
@@ -38446,6 +38469,73 @@ export default function App() {
                   </div>
                 );
               })()}
+
+              {/* ── Food thrown away (v575) — optional; sits with the supplies (same order) ── */}
+              <div className="fwCard" data-testid="waste-card" style={{ order: guideFocus === "event" ? 2 : 1 }}>
+                <div className="fwHead">
+                  <span className="fwTitle">🗑 Food thrown away</span>
+                  {foodWasteRowsCount > 0 && <span className="fwCount" data-testid="waste-count">{foodWasteRowsCount} item{foodWasteRowsCount !== 1 ? "s" : ""}</span>}
+                </div>
+                <div className="fwSub">Anything thrown out on this stand: what it was, how much, and why. Nothing here is required.</div>
+
+                {foodWaste.length === 0 && !foodWasteNone && (
+                  <div className="fwStart">
+                    <button type="button" className="fwBtn" data-testid="waste-none" onClick={() => setFoodWasteNone(true)}>✓ Nothing thrown away</button>
+                    <button type="button" className="fwBtn fwBtnAdd" data-testid="waste-add" onClick={addFoodWasteRow}>＋ Log food thrown away</button>
+                  </div>
+                )}
+                {foodWaste.length === 0 && foodWasteNone && (
+                  <div className="fwNoneDone" data-testid="waste-none-done">
+                    <span>✓ Nothing thrown away on this stand</span>
+                    <button type="button" className="fwLink" data-testid="waste-none-change" onClick={() => setFoodWasteNone(false)}>Change</button>
+                  </div>
+                )}
+
+                {foodWaste.map((r, idx) => {
+                  const missing = [];
+                  if (!String(r.item || "").trim()) missing.push("what");
+                  if (!(Number(r.qty) > 0)) missing.push("how much");
+                  if (!r.unit) missing.push("unit");
+                  if (!r.reason) missing.push("why");
+                  const itemOn = wasteItemKey(r.item);
+                  return (
+                    <div key={r.id} className={"fwRow" + (missing.length ? "" : " done")} data-testid="waste-row">
+                      <div className="fwRowHead">
+                        <span className="fwRowNo">Item {idx + 1}{missing.length ? "" : " ✓"}</span>
+                        <button type="button" className="fwLink" data-testid="waste-remove" onClick={() => setFoodWaste(prev => prev.filter(x => x.id !== r.id))}>✕ Remove</button>
+                      </div>
+                      <div className="fwLabel">What was thrown away</div>
+                      <div className="fwChips">
+                        {WASTE_ITEMS.map(x => (
+                          <button key={x.en} type="button" className={"fwChip" + (itemOn === x.en ? " on" : "")} data-testid="waste-item-chip" onClick={() => patchFoodWaste(r.id, { item: x.en })}>{x.en}</button>
+                        ))}
+                      </div>
+                      <input className="fwInput" type="text" data-testid="waste-item" placeholder="Or type it, e.g. Coleslaw" value={r.item} onChange={e => patchFoodWaste(r.id, { item: e.target.value })} />
+                      <div className="fwLabel">How much</div>
+                      <div className="fwAmount">
+                        <input className="fwInput fwQty" type="text" inputMode="decimal" data-testid="waste-qty" placeholder="0" value={r.qty}
+                          onChange={e => patchFoodWaste(r.id, { qty: e.target.value.replace(/[^0-9.,]/g, "").replace(",", ".") })} />
+                        <div className="fwChips">
+                          {WASTE_UNITS.map(u => (
+                            <button key={u.k} type="button" className={"fwChip" + (r.unit === u.k ? " on" : "")} data-testid={`waste-unit-${u.k}`} onClick={() => patchFoodWaste(r.id, { unit: u.k })}>{u.en}</button>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="fwLabel">Why</div>
+                      <div className="fwChips">
+                        {WASTE_REASONS.map(x => (
+                          <button key={x.k} type="button" className={"fwChip" + (r.reason === x.k ? " on" : "")} data-testid={`waste-reason-${x.k}`} onClick={() => patchFoodWaste(r.id, { reason: x.k })}>{x.icon} {x.en}</button>
+                        ))}
+                      </div>
+                      {missing.length > 0 && <div className="fwMissing" data-testid="waste-missing">Still to add: {missing.join(" · ")}</div>}
+                    </div>
+                  );
+                })}
+
+                {foodWaste.length > 0 && (
+                  <button type="button" className="fwBtn fwBtnAdd" data-testid="waste-add-more" onClick={addFoodWasteRow}>＋ Add another item</button>
+                )}
+              </div>
 
               {/* Event Day: show temps BEFORE supplies (order 1); all other types: order 2 */}
               <div className="equipCheckWrapper" style={{ order: guideFocus === "event" ? 1 : 2 }}>

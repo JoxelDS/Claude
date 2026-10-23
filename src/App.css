@@ -10926,3 +10926,36 @@ html[data-theme="black"] .crSheet .btn.btnGhost { background: #0b0d14; color: #e
 html[data-theme="black"] .fuStartBar { background: #111827; border-color: #374151; }
 html[data-theme="black"] .fuStartAsk { background: #0b0d14; border-color: #2b3040; color: #e5e7eb; }
 html[data-theme="black"] .fuStartUndoStrip { background: #052e1f; color: #bbf7d0; }
+
+/* ── v575: food thrown away (inspection form) ── */
+.fwCard { background: var(--sdx-white); border-radius: 14px; box-shadow: 0 0 0 1px var(--sdx-gray-200); padding: 14px 16px 16px; margin-top: 10px; }
+.fwHead { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.fwTitle { font-weight: 800; font-size: 1rem; color: var(--sdx-navy); }
+.fwCount { font-size: .75rem; font-weight: 800; padding: 2px 9px; border-radius: 999px; background: var(--tint-amber-2); color: var(--tx-amber); }
+.fwSub { margin-top: 4px; font-size: .8rem; line-height: 1.45; color: var(--ink-500); }
+.fwStart, .fwNoneDone { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.fwBtn { flex: 1 1 160px; min-height: 46px; padding: 8px 12px; border-radius: 12px; border: 1.5px solid var(--sdx-gray-200); background: var(--surface-2); color: var(--sdx-navy); font-weight: 800; font-size: .9rem; cursor: pointer; }
+.fwBtnAdd { background: var(--sdx-navy); border-color: var(--sdx-navy); color: #fff; }
+.fwNoneDone { align-items: center; justify-content: space-between; padding: 10px 12px; border-radius: 12px; background: var(--tint-green-1); color: #15803d; font-weight: 700; font-size: .88rem; }
+.fwLink { min-height: 40px; padding: 4px 8px; border: none; background: none; color: var(--sdx-navy); font-weight: 700; font-size: .84rem; text-decoration: underline; cursor: pointer; }
+.fwRow { margin-top: 12px; padding: 12px; border-radius: 12px; border: 1.5px solid var(--sdx-gray-200); background: var(--sdx-gray-50); }
+.fwRow.done { border-color: #86efac; }
+.fwRowHead { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.fwRowNo { font-weight: 800; font-size: .9rem; color: var(--sdx-navy); }
+.fwLabel { margin: 10px 0 5px; font-size: .72rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-500); }
+.fwChips { display: flex; flex-wrap: wrap; gap: 6px; }
+.fwChip { min-height: 40px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--sdx-gray-200); background: var(--surface-2); color: var(--sdx-navy); font-weight: 700; font-size: .84rem; cursor: pointer; }
+.fwChip.on { background: var(--sdx-navy); border-color: var(--sdx-navy); color: #fff; }
+.fwInput { width: 100%; box-sizing: border-box; min-height: 44px; margin-top: 6px; padding: 8px 12px; border-radius: 10px; border: 1px solid var(--sdx-gray-200); background: var(--sdx-white); color: inherit; font-size: 16px; }
+.fwAmount { display: flex; flex-direction: column; gap: 6px; }
+.fwQty { max-width: 140px; margin-top: 0; text-align: center; }
+.fwMissing { margin-top: 10px; font-size: .8rem; font-weight: 700; color: #b45309; }
+html[data-theme="black"] .fwMissing { color: #fbbf24; }
+html[data-theme="black"] .fwNoneDone { background: #052e1f; color: #bbf7d0; }
+
+/* ── v575: Follow-ups empty / loading card — padded and centred (the text sat on the edge, 🔁 touched the border) ── */
+.fuEmptyCard { padding: 26px 22px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 8px; }
+.fuEmptyCard p { margin: 0; max-width: 300px; font-size: .9rem; line-height: 1.5; color: var(--ink-500); }
+.fuEmptyLoad { display: flex; align-items: center; gap: 10px; }
+.fuEmptyLoad p { text-align: left; }
+.fuEmptySpin { display: inline-block; width: 18px; height: 18px; box-sizing: border-box; border-radius: 50%; border: 2.5px solid var(--sdx-gray-200); border-top-color: var(--sdx-navy); animation: spin .8s linear infinite; }
